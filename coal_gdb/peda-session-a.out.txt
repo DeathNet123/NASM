@@ -1,0 +1,2 @@
+break /mnt/c/Users/arsla/Desktop/nasm/NASM/coal_gdb/new.c:4
+
