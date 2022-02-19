@@ -1,6 +1,5 @@
 ;Adding two numbers from the user and printing the result
-;Note that it adds two 8-bits number
-;it is not successful yet...
+;Note that it adds two single digit numbers which will result in single digit number..
 ;ok now it will be successful since the input will be take in the char type array we need our data first int to integer..
 section .data
 msg: db "The Result: "
