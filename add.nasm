@@ -42,6 +42,7 @@ sub al, 48
 mov bl, byte [v2]
 sub bl, 48
 add al, bl
+;adding the ascii of 0 in the number
 add al, 48
 mov byte[res], al
 ;printing the result
