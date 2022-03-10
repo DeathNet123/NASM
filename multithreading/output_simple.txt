@@ -1,0 +1,11 @@
+#Avg values for the linear search without any threads
+it took us 96 seconds to find result
+it took us 92 seconds to find result
+it took us 96 seconds to find result
+it took us 90 seconds to find result
+it took us 91 seconds to find result
+it took us 90 seconds to find result
+it took us 95 seconds to find result
+it took us 94 seconds to find result
+it took us 91 seconds to find result
+it took us 116 seconds to find result
