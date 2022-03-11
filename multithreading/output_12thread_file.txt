@@ -1,21 +1,11 @@
 #Avg values for the linear search with twelve threads
-It took us 52 seconds to find the results
-Yes
-It took us 40 seconds to find the results
-Yes
-It took us 41 seconds to find the results
-Yes
-It took us 41 seconds to find the results
-Yes
-It took us 40 seconds to find the results
-Yes
-It took us 40 seconds to find the results
-Yes
-It took us 81 seconds to find the results
-Yes
-It took us 50 seconds to find the results
-Yes
-It took us 48 seconds to find the results
-Yes
-It took us 41 seconds to find the results
-Yes
+It took us 56 seconds to find the results
+It took us 55 seconds to find the results
+It took us 55 seconds to find the results
+It took us 64 seconds to find the results
+It took us 55 seconds to find the results
+It took us 64 seconds to find the results
+It took us 55 seconds to find the results
+It took us 55 seconds to find the results
+It took us 56 seconds to find the results
+It took us 56 seconds to find the results
