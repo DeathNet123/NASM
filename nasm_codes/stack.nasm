@@ -8,6 +8,7 @@ mov rcx, 10d
 _repeat:
 push rcx
 call print
+call print
 pop rcx
 loop _repeat
 _end:
