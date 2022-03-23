@@ -1,2 +1,2 @@
 # Advanced Programming in C
-This Repo contains the codes i wrote while learning the NASM..
+This repo contains codes related to multithreading and some basic system programming techniques such as making more and ls command of the linux......
