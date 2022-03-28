@@ -1,0 +1,5 @@
+break /mnt/c/Users/arsla/Desktop/System Programming/System-Programming-in-C-and-Linux/more_command/more.c:40
+disable $bpnum
+break /mnt/c/Users/arsla/Desktop/System Programming/System-Programming-in-C-and-Linux/more_command/more.c:40
+disable $bpnum
+
