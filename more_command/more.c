@@ -3,15 +3,16 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/types.h>
+#include<string.h>
 #include <sys/wait.h>
 #include<unistd.h>
-//#define DEBUG
 //Can't intialize the static variables with non-constant elements
 static  int LINES;
 static int COLS;
 void handle_editor(FILE *fp);
 void print_stuff(FILE *printer, int file_overall);
 int count_lines(FILE *f);
+void search(int *lines, FILE *fp, int file_overall);
 int main(int argc, char *argv[])
 { 
     //Non-Canonical Mode input
@@ -20,9 +21,6 @@ int main(int argc, char *argv[])
     //Placing the values of LINES AND COLUMNS into a variables..
     LINES = atoi(getenv("LINES"));//since getenv returns char* we converting them into int;
     COLS = atoi(getenv("COLUMNS"));
-    #ifdef DEBUG
-    handle_editor(/*fopen(argv[1], "r")*/stdin);
-    #endif
     //Did this to check weather the I/O was redirected or not -t 0 test weather fd 0 is connected to terminal a.k.a tty or not
     if(argc == 1 && !system("test -t 0"))//if stdin is not redirected
     {
@@ -30,8 +28,9 @@ int main(int argc, char *argv[])
     }
     else if(system("test -t 0")) //if stdin is redirected
     {
-        print_stuff(stdin, count_lines(stdin));
+        print_stuff(stdin, count_lines(stdin));//send the stdin pointer to print funtion
     }
+    //This will print the remaining arguments file.......
     for(int idx = 1; idx < argc; idx++)
     {
         if(argc > 2)
@@ -48,7 +47,7 @@ int main(int argc, char *argv[])
 }
 void print_stuff(FILE *printer, int file_overall)
 {
-    int lines = 1;
+    int lines = 0;
     FILE *command = fopen("/dev/tty", "r");//this is for taking the input from the user...
     char buffer[COLS];
     int idx = 0;
@@ -61,6 +60,7 @@ void print_stuff(FILE *printer, int file_overall)
         if(idx >= LINES-1)
         {
             printf("\e[7m\033[1m --MORE%0.f%--\e[m", (float) lines / file_overall * 100);
+            in_case:
             switch(getc(command))
             {
                 case '\n':
@@ -77,7 +77,15 @@ void print_stuff(FILE *printer, int file_overall)
                     handle_editor(printer);
                     printf("\n");
                     break;
+                case '/':
+                    printf("\e[2K\e[1G");
+                    search(&lines, printer, file_overall);
+                    idx = 2;
+                    continue;
+                    break;
                 default:
+                    printf("\e[1D\e[0K");
+                    goto in_case;
                     break;
             }
             printf("\e[1A\033[2K \033[1G");
@@ -85,7 +93,7 @@ void print_stuff(FILE *printer, int file_overall)
     }
     fclose(printer);
 }
-int count_lines(FILE* f)
+int count_lines(FILE* f)//This function will count the lines and return the number of lines in file and it makes sure to rewind the pointer to start..
 {
     int file_overall = 1;
     char buffer[COLS];
@@ -100,11 +108,11 @@ void handle_editor(FILE *fp)
 {
     char filename[COLS];
     char proclink[COLS];
-    int real_id = getpid();
-    int fd = fileno(fp);
-    sprintf(proclink, "/proc/%d/fd/%d", real_id, fd);
-    int size = readlink(proclink, filename, COLS);
-    filename[size] = '\0';
+    int real_id = getpid();//get the pid 
+    int fd = fileno(fp);//get the file descriptor of the opened file.
+    sprintf(proclink, "/proc/%d/fd/%d", real_id, fd);//get the link of the opened file from fd table..
+    int size = readlink(proclink, filename, COLS);//get the file name using the readlink since they are soft link
+    filename[size] = '\0';//set the filename last character as \0 the NOTE: readlink will place the number of bytes it will read Nice right smh and I love Minha :)
     int pid = fork();
     if(pid == 0)
     {
@@ -113,5 +121,29 @@ void handle_editor(FILE *fp)
         execvp(editor, args);
     }
     wait(NULL);
+    return;
+}
+void search(int *lines, FILE *fp, int file_overall)
+{
+    system("stty icanon"); //turning on canonical mode
+    printf("/");
+    char sub[COLS];
+    scanf("%s", &sub);
+    char buffer[COLS];
+    unsigned int skipper = 0;
+    while((*lines) <= file_overall)
+    {
+        fgets(buffer, COLS, fp);
+        (*lines)++;
+        skipper++;
+        if(strstr(buffer, sub) != NULL)
+        {
+            if(skipper > 2)
+                printf("skipping...\n");
+            fputs(buffer, stdout);
+            break;
+        }
+    }
+    system("stty -icanon");//turning off canonical mode
     return;
 }
