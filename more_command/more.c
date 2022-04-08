@@ -5,19 +5,26 @@
 #include <sys/types.h>
 #include<string.h>
 #include <sys/wait.h>
+#include<termios.h>
 #include<unistd.h>
 //Can't intialize the static variables with non-constant elements
 static  int LINES;
 static int COLS;
+static FILE *command;
+static int fd;
+static struct termios info;
 void handle_editor(FILE *fp);
 void print_stuff(FILE *printer, int file_overall);
 int count_lines(FILE *f);
-void search(int *lines, FILE *fp, int file_overall);
+void search(int *lines, FILE *fp, int file_overall, FILE * command);
 int main(int argc, char *argv[])
 { 
     //Non-Canonical Mode input
-    system("stty -icanon");
-    //system("stty -echo");
+    command = fopen("/dev/tty", "r");
+    fd = fileno(command);
+    tcgetattr(fd, &info);
+    info.c_lflag &= ~ICANON;
+    tcsetattr(fd, TCSANOW, &info);
     //Placing the values of LINES AND COLUMNS into a variables..
     LINES = atoi(getenv("LINES"));//since getenv returns char* we converting them into int;
     COLS = atoi(getenv("COLUMNS"));
@@ -42,13 +49,13 @@ int main(int argc, char *argv[])
         FILE *opener = fopen(argv[idx], "r");
         print_stuff(opener, count_lines(opener));
     }
-    system("stty icanon");
+    info.c_lflag |= ICANON;
+    tcsetattr(fd, TCSANOW, &info);
     return 0;
 }
 void print_stuff(FILE *printer, int file_overall)
 {
     int lines = 0;
-    FILE *command = fopen("/dev/tty", "r");//this is for taking the input from the user...
     char buffer[COLS];
     int idx = 0;
     while(fgets(buffer, COLS, printer) != NULL)
@@ -59,7 +66,7 @@ void print_stuff(FILE *printer, int file_overall)
         lines++;
         if(idx >= LINES-1)
         {
-            printf("\e[7m\033[1m --MORE%0.f%--\e[m", (float) lines / file_overall * 100);
+            printf("\e[7m\033[1m --MORE%0.f%%--\e[m", (float) lines / file_overall * 100);
             in_case:
             switch(getc(command))
             {
@@ -67,7 +74,9 @@ void print_stuff(FILE *printer, int file_overall)
                     idx--;
                     break;
                 case 'q':
-                printf("\n\e[1A\033[2K \033[1G");
+                    printf("\033[2K \033[1G");
+                    info.c_lflag |= ICANON;
+                    tcsetattr(fd, TCSANOW, &info);
                     exit(0);
                 case ' ':
                     printf("\n");//this line will add the newline when space bar is pressed so that line 59 can erase the --MORE--
@@ -79,9 +88,13 @@ void print_stuff(FILE *printer, int file_overall)
                     break;
                 case '/':
                     printf("\e[2K\e[1G");
-                    search(&lines, printer, file_overall);
+                    search(&lines, printer, file_overall, command);
                     idx = 2;
                     continue;
+                    break;
+                case 'n':
+                    printf("\n");
+                    idx--;
                     break;
                 default:
                     printf("\e[1D\e[0K");
@@ -92,6 +105,7 @@ void print_stuff(FILE *printer, int file_overall)
         }
     }
     fclose(printer);
+    fclose(command);
 }
 int count_lines(FILE* f)//This function will count the lines and return the number of lines in file and it makes sure to rewind the pointer to start..
 {
@@ -123,12 +137,14 @@ void handle_editor(FILE *fp)
     wait(NULL);
     return;
 }
-void search(int *lines, FILE *fp, int file_overall)
+void search(int *lines, FILE *fp, int file_overall, FILE* command)
 {
-    system("stty icanon"); //turning on canonical mode
+    //Turning on the canonical mode
+    info.c_lflag |= ICANON;
+    tcsetattr(fd, TCSANOW, &info);
     printf("/");
     char sub[COLS];
-    scanf("%s", &sub);
+    fgets(sub, COLS, command);
     char buffer[COLS];
     unsigned int skipper = 0;
     while((*lines) <= file_overall)
@@ -144,6 +160,8 @@ void search(int *lines, FILE *fp, int file_overall)
             break;
         }
     }
-    system("stty -icanon");//turning off canonical mode
-    return;
+    //Turning it back off
+    info.c_lflag &= ~ICANON;
+    tcsetattr(fd, TCSANOW, &info);
+  return;
 }
