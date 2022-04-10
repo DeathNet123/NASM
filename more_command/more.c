@@ -35,7 +35,16 @@ int main(int argc, char *argv[])
     }
     else if(system("test -t 0")) //if stdin is redirected
     {
-        print_stuff(stdin, count_lines(stdin));//send the stdin pointer to print funtion
+        char filename[COLS];
+        char proclink[COLS];
+        int real_id = getpid();//get the pid 
+        int fd = fileno(stdin);//get the file descriptor of the opened file.
+        sprintf(proclink, "/proc/%d/fd/%d", real_id, fd);//get the link of the opened file from fd table..
+        int size = readlink(proclink, filename, COLS);//get the file name using the readlink since they are soft link
+        filename[size] = '\0';
+        dup2(1, 0); // get back your keyboard on track..
+        FILE *fp = fopen(filename, "r");//open the file
+        print_stuff(fp, count_lines(fp));//send the stdin pointer to print funtion
     }
     //This will print the remaining arguments file.......
     for(int idx = 1; idx < argc; idx++)
