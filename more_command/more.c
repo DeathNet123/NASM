@@ -16,7 +16,7 @@ static struct termios info;
 void handle_editor(FILE *fp);
 void print_stuff(FILE *printer, int file_overall);
 int count_lines(FILE *f);
-void search(int *lines, FILE *fp, int file_overall, FILE * command);
+int search(int *lines, FILE *fp, int file_overall, FILE * command);
 int main(int argc, char *argv[])
 { 
     //Non-Canonical Mode input
@@ -97,9 +97,11 @@ void print_stuff(FILE *printer, int file_overall)
                     break;
                 case '/':
                     printf("\e[2K\e[1G");
-                    search(&lines, printer, file_overall, command);
-                    idx = 2;
-                    continue;
+                    if(search(&lines, printer, file_overall, command) != -1)
+                    {
+                        idx = 2;
+                        continue;
+                    }
                     break;
                 case 'n':
                     printf("\n");
@@ -146,14 +148,17 @@ void handle_editor(FILE *fp)
     wait(NULL);
     return;
 }
-void search(int *lines, FILE *fp, int file_overall, FILE* command)
+int search(int *lines, FILE *fp, int file_overall, FILE* command)
 {
     //Turning on the canonical mode
+    int flag = 0;
+    int prev = *lines;
     info.c_lflag |= ICANON;
     tcsetattr(fd, TCSANOW, &info);
     printf("/");
     char sub[COLS];
     fgets(sub, COLS, command);
+    strtok(sub, "\n");
     char buffer[COLS];
     unsigned int skipper = 0;
     while((*lines) <= file_overall)
@@ -166,11 +171,22 @@ void search(int *lines, FILE *fp, int file_overall, FILE* command)
             if(skipper > 2)
                 printf("skipping...\n");
             fputs(buffer, stdout);
+            flag = 1;
             break;
         }
+    }
+    if(!flag)
+    {
+        rewind(fp);
+        while(prev--)
+        {
+            fgets(buffer, COLS, fp);
+        }
+        *lines = prev;
+        flag = -1;
     }
     //Turning it back off
     info.c_lflag &= ~ICANON;
     tcsetattr(fd, TCSANOW, &info);
-  return;
+  return flag;
 }
