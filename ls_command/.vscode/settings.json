@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.nasm": "nasm",
+        "*.cpp": "cpp",
+        "stat.h": "c",
+        "time.h": "c"
+    }
+}
