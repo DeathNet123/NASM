@@ -6,7 +6,10 @@
 #include<dirent.h>
 #include <sys/stat.h>
 #include <stdbool.h>
+#include<string.h>
 #include <time.h>
+#include <limits.h>
+#include<math.h>
 
 static int LINES;
 static int COLS;
@@ -14,27 +17,42 @@ static struct dirent **namelist; //for storing the entries in directory
 static struct stat *info; //for storing the details of each entry
 extern int errorno;
 
-void populate_data(const char *dir_name);
-void free_mem(int mem_size);
+void  populate_data(char *dir_name);
+void free_mem(int mem_size, struct stat *info, struct dirent **namelist);
+void smart_show(struct stat *info, struct dirent **namelist, int count_entries);
+void long_list(struct stat *info, struct dirent **namelist, int count_entries);
 int main(int argc, char *argv[])
 {
     LINES = atoi(getenv("LINES"));
     COLS = atoi(getenv("COLUMNS"));
-    if(argc > 1)
+    if(system("test -t 0")) //if stdin was redirected
+    {
+        char filename[PATH_MAX];
+        char proclink[PATH_MAX];
+        int real_id = getpid();//get the pid 
+        sprintf(proclink, "/proc/%d/fd/0", real_id);//get the link of the opened file from fd table..
+        int size = readlink(proclink, filename, PATH_MAX);//get the file name using the readlink since they are soft link
+        filename[size] = '\0';
+        populate_data(filename);
+    }
+    else if(argc > 1)
     {
         for(int idx = 1; idx < argc; idx++)
         {
+            if(argc > 2)
+                printf("%s:\n", argv[idx]);
             populate_data(argv[idx]);
+            if(argc > 2)
+                printf("\n\n");
         }
     }
     else
     {
-        int count = populate_data(".");
-        free_mem(count);
+        populate_data(".");
     }
     return 0;
 }
-int populate_data(const char *dir_name)
+void populate_data(char *dir_name)
 {
     struct stat *info;//will hold the information of the file...
     struct dirent **namelist;//will hold the entries of the directory..
@@ -48,6 +66,7 @@ int populate_data(const char *dir_name)
     here the comparison function is alphasort and Filter is pointed towards NULL
     scandir allocate memory by itself but have to deallocate it
     */
+   char path_name[PATH_MAX]; //for storing the path
     if(count_entries < 0)
     {
         perror("scandir");
@@ -57,21 +76,14 @@ int populate_data(const char *dir_name)
         info = malloc(count_entries * sizeof(struct stat));
         for(int idx = 0; idx < count_entries; idx++)
         {
-            int status = lstat(namelist[idx]->d_name, &info[idx]);
+            sprintf(path_name, "%s/%s", dir_name, namelist[idx]->d_name);
+            int status = lstat(path_name, &info[idx]);
             if(status == -1)
-                perror("stat failed");
-            printf("mode: %o\n", info->st_mode);
-            printf("link count: %ld\n", info->st_nlink);
-            printf("user: %d\n", info->st_uid);
-            printf("group: %d\n", info->st_gid);
-            printf("size: %ld\n", info->st_size);
-            printf("modtime: %ld\n", info->st_mtime);
-            printf("name: %s\n", namelist[idx]->d_name);
-            printf("------------------------------------\n");
+                perror("lstat");
         }
+        smart_show(info, namelist, count_entries);
+        free_mem(count_entries, info, namelist);
     }
-    free_mem(count_entries, info, namelist);
-    return;
 }
 void free_mem(int mem_size, struct stat *info, struct dirent **namelist)
 {
@@ -81,5 +93,27 @@ void free_mem(int mem_size, struct stat *info, struct dirent **namelist)
     }
         free(namelist);
         free(info);
-    return;
-}       
+}
+void smart_show(struct stat *info, struct dirent **namelist, int count_entries)
+{
+    int max = 0, temp = 0, total = 0;
+    for(int idx = 0; idx < count_entries; idx++)
+    {
+        temp = strlen(namelist[idx]->d_name)  + 1;
+        if(temp > max)
+        {
+            max = temp;
+        }
+    }
+    int cols = (float) COLS / (max + 1);
+    int lines = (float) ceil(count_entries / cols);
+    printf("%d, %d", cols, (int)ceil(count_entries / cols));
+    for(int idx = 0; idx < count_entries; idx++)
+    {
+        printf(" %s ", namelist[idx]->d_name);
+    }
+}
+void long_list(struct stat *info, struct dirent **namelist, int count_entries)
+{
+    
+}      
