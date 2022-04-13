@@ -333,30 +333,32 @@ void handle_recursive(char *dir_name)
     char** arr = (char**)malloc(count_entries * sizeof(char*));
     for (int idx = 0; idx < count_entries; idx++)
         arr[idx] = (char*)malloc(100 * sizeof(char));
-    
-    for(int idx = 0; idx < count_entries; idx++)
-    {
-        if((strcmp(namelist[idx]->d_name, "..") == 0) || ((namelist[idx]->d_name[0] == '.') && (strlen(namelist[idx]->d_name) != 1)))
-            continue;
-        //if DIR then     
-        if(namelist[idx]->d_type == DT_DIR)
-        {
-            sprintf(arr[ll++], "%s/%s", dir_name, namelist[idx]->d_name);
-            printf("%s/%s:\n", dir_name, namelist[idx]->d_name);
-            if(MASK & LONG_LIST)
+    printf("%s:\n", dir_name);
+    if(MASK & LONG_LIST)
                 long_list(info, namelist, count_entries);
             else
                 smart_show(info, namelist, count_entries);
             printf("\n");
-        }        
-    }
+
     for(int idx = 0; idx < count_entries; idx++)
     {
-        free(namelist[idx]);
+        //if it is .. then skip and if it is hidden dir and HIDDEN mode is off then continue
+        if((strcmp(namelist[idx]->d_name, "..") == 0) || ((namelist[idx]->d_name[0] == '.') && (strlen(namelist[idx]->d_name) != 1) && !(MASK & HIDDEN)))
+            continue;
+        //if DIR then add it in list
+        if(namelist[idx]->d_type == DT_DIR)
+        {
+            sprintf(arr[ll++], "%s/%s", dir_name, namelist[idx]->d_name);
+        }        
     }
-    free(namelist);
+    //free the namelist
+    free_mem(count_entries, info, namelist);
+    
+    //Recursively calling the handle_recursive for the other directories...
     for(int idx = 1; idx < ll; idx++)
         handle_recursive(arr[idx]);
+    
+    //free the list of DIR..
     for(int idx = 0; idx < count_entries; idx++)
     {
         free(arr[idx]);
