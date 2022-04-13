@@ -13,6 +13,7 @@
 #include<math.h>
 #include <grp.h>
 #include <errno.h>
+#include <sys/sysmacros.h>
 
 static int LINES;
 static int COLS;
@@ -25,6 +26,8 @@ void long_list(struct stat *info, struct dirent **namelist, int count_entries);
 void mode_decoder(struct stat buf, char *mode);
 void user_name_decode(int uid, char *user_name);
 void group_name_decode(int gid, char *group_name);
+void set_size(struct dirent * entry, struct stat info, char *size);
+void set_time(long seconds, char *times);
 int main(int argc, char *argv[])
 {
     LINES = atoi(getenv("LINES"));
@@ -120,17 +123,35 @@ void smart_show(struct stat *info, struct dirent **namelist, int count_entries)
 }
 void long_list(struct stat *info, struct dirent **namelist, int count_entries)
 {
+    int total = 0;
+    for(int idx = 0; idx < count_entries; idx++)
+    {
+        total += info[idx].st_blocks;
+    }
+    printf("total : %d\n", total/2);
+     
     char per_type[11];
     char user_name[32]; //it is set to 32 since it is max
-    char group_name[32];
+    char group_name[32]; // it is also 32
+    char size[50]; //it is being taken as string because we will test the block and char file so different answer
+    char times[17];
     for(int idx = 0; idx < count_entries; idx++)
     {
         mode_decoder(info[idx], per_type);
         user_name_decode(info[idx].st_uid, user_name);
         group_name_decode(info[idx].st_gid, group_name);
-        printf("%s %ld %s %s ", per_type, info[idx].st_nlink, user_name, group_name);
-        
+        set_size(namelist[idx], info[idx], size);
+        set_time(info[idx].st_mtime, times);
+        printf("%s %ld %s %s %s %s %s", per_type, info[idx].st_nlink, user_name, group_name, size, times, namelist[idx]->d_name);
+        if(namelist[idx]->d_type == DT_LNK)
+        {
+            char filename[PATH_MAX];
+            int n = readlink(namelist[idx]->d_name, filename, PATH_MAX);
+            filename[n] = '\0';
+            printf(" -> %s", filename);
+        }
         printf("\n");
+
     }
 } 
 void mode_decoder(struct stat buf, char *str) //this code is courtessy of Sir Arif butt :) 
@@ -182,4 +203,24 @@ void group_name_decode(int gid, char *group_name)
     struct group * grp = getgrgid(gid);
     memset(group_name, '\0', 32);
     strcpy(group_name, grp->gr_name);
+}
+void set_size(struct dirent * entry, struct stat info, char *size)
+{
+    memset(size, '\0', 50);
+    if(entry-> d_type == DT_BLK || entry-> d_type == DT_CHR) 
+    {
+        unsigned int maj = major(info.st_rdev);
+        unsigned int min = minor(info.st_rdev);
+        sprintf(size, "%d, %d",maj, min);
+    }
+    else
+    sprintf(size, "%ld", info.st_size);
+}
+void set_time(long seconds, char *times)
+{
+    char timer[30];
+    memset(times, '0', sizeof(char) * 16);
+    times[17] - '\0';
+    sprintf(timer, "%s", ctime(&seconds));
+    memcpy(times, timer, 16);
 }
