@@ -24,6 +24,7 @@ static int real_count = 0;
 #define LONG_LIST 1
 #define INODE 2
 #define RECURSIVE 4
+#define HIDDEN 8
 void  populate_data(char *dir_name);
 void free_mem(int mem_size, struct stat *info, struct dirent **namelist);
 void smart_show(struct stat *info, struct dirent **namelist, int count_entries);
@@ -134,6 +135,8 @@ void smart_show(struct stat *info, struct dirent **namelist, int count_entries)
     printf("%d, %d", cols, (int)ceil(count_entries / cols));
     for(int idx = 0; idx < count_entries; idx++)
     {
+        if((namelist[idx]->d_name[0] == '.') && !(MASK & HIDDEN))
+            continue;
         printf(" %s ", namelist[idx]->d_name);
     }
 }
@@ -153,6 +156,10 @@ void long_list(struct stat *info, struct dirent **namelist, int count_entries)
     char times[17];
     for(int idx = 0; idx < count_entries; idx++)
     {
+        if((namelist[idx]->d_name[0] == '.') && !(MASK & HIDDEN))
+            continue;
+        if(MASK & INODE)
+            printf("%ld ", namelist[idx]->d_ino);
         mode_decoder(info[idx], per_type);
         user_name_decode(info[idx].st_uid, user_name);
         group_name_decode(info[idx].st_gid, group_name);
@@ -258,6 +265,9 @@ void handle_options(int argc, char *argv[])
                         break;
                     case 'R':
                         MASK |= RECURSIVE;
+                        break;
+                    case 'a':
+                        MASK |= HIDDEN;
                         break;
                     default:
                         printf("ls: invalid option -- %c", argv[idx][kdx]);
