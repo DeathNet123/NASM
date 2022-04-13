@@ -19,6 +19,11 @@ static int LINES;
 static int COLS;
 extern int errno;
 
+static int MASK = 0;
+static int real_count = 0;
+#define LONG_LIST 1
+#define INODE 2
+#define RECURSIVE 4
 void  populate_data(char *dir_name);
 void free_mem(int mem_size, struct stat *info, struct dirent **namelist);
 void smart_show(struct stat *info, struct dirent **namelist, int count_entries);
@@ -28,10 +33,13 @@ void user_name_decode(int uid, char *user_name);
 void group_name_decode(int gid, char *group_name);
 void set_size(struct dirent * entry, struct stat info, char *size);
 void set_time(long seconds, char *times);
+void handle_options(int argc, char *argv[]);
 int main(int argc, char *argv[])
 {
+    real_count  = argc;
     LINES = atoi(getenv("LINES"));
     COLS = atoi(getenv("COLUMNS"));
+    handle_options(argc, argv);
     if(system("test -t 0")) //if stdin was redirected
     {
         char filename[PATH_MAX];
@@ -42,14 +50,16 @@ int main(int argc, char *argv[])
         filename[size] = '\0';
         populate_data(filename);
     }
-    else if(argc > 1)
+    else if(real_count > 1)
     {
         for(int idx = 1; idx < argc; idx++)
         {
-            if(argc > 2)
+            if(argv[idx] == NULL)
+                continue;
+            if(real_count > 2)
                 printf("%s:\n", argv[idx]);
             populate_data(argv[idx]);
-            if(argc > 2)
+            if(real_count > 2)
                 printf("\n\n");
         }
     }
@@ -77,6 +87,7 @@ void populate_data(char *dir_name)
     if(count_entries < 0)
     {
         perror("scandir");
+        exit(errno);
     }
     else
     {
@@ -86,10 +97,15 @@ void populate_data(char *dir_name)
             sprintf(path_name, "%s/%s", dir_name, namelist[idx]->d_name);
             int status = lstat(path_name, &info[idx]);
             if(status == -1)
+            {
                 perror("lstat");
+            }
         }
-        //smart_show(info, namelist, count_entries);
-        long_list(info, namelist, count_entries);
+        if(MASK & LONG_LIST)
+            long_list(info, namelist, count_entries);
+        else
+            smart_show(info, namelist, count_entries);
+        
         free_mem(count_entries, info, namelist);
     }
 }
@@ -223,4 +239,34 @@ void set_time(long seconds, char *times)
     times[17] - '\0';
     sprintf(timer, "%s", ctime(&seconds));
     memcpy(times, timer, 16);
+}
+void handle_options(int argc, char *argv[])
+{
+    for(int idx = 1; idx < argc; ++idx)
+    {
+        if(argv[idx][0] == '-')
+        {
+            for(int kdx = 1; kdx < strlen(argv[idx]); kdx++)
+            {
+                switch(argv[idx][kdx])
+                {
+                    case 'l':
+                        MASK |= LONG_LIST;
+                        break;
+                    case 'i':
+                        MASK |= INODE;
+                        break;
+                    case 'R':
+                        MASK |= RECURSIVE;
+                        break;
+                    default:
+                        printf("ls: invalid option -- %c", argv[idx][kdx]);
+                        exit(-1);
+                        break;
+                }
+            }
+            real_count--;
+            argv[idx] = NULL;
+        }
+    }
 }
