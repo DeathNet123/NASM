@@ -9,18 +9,22 @@
 #include<string.h>
 #include <time.h>
 #include <limits.h>
+#include <pwd.h>
 #include<math.h>
+#include <grp.h>
+#include <errno.h>
 
 static int LINES;
 static int COLS;
-static struct dirent **namelist; //for storing the entries in directory
-static struct stat *info; //for storing the details of each entry
-extern int errorno;
+extern int errno;
 
 void  populate_data(char *dir_name);
 void free_mem(int mem_size, struct stat *info, struct dirent **namelist);
 void smart_show(struct stat *info, struct dirent **namelist, int count_entries);
 void long_list(struct stat *info, struct dirent **namelist, int count_entries);
+void mode_decoder(struct stat buf, char *mode);
+void user_name_decode(int uid, char *user_name);
+void group_name_decode(int gid, char *group_name);
 int main(int argc, char *argv[])
 {
     LINES = atoi(getenv("LINES"));
@@ -81,7 +85,8 @@ void populate_data(char *dir_name)
             if(status == -1)
                 perror("lstat");
         }
-        smart_show(info, namelist, count_entries);
+        //smart_show(info, namelist, count_entries);
+        long_list(info, namelist, count_entries);
         free_mem(count_entries, info, namelist);
     }
 }
@@ -115,5 +120,66 @@ void smart_show(struct stat *info, struct dirent **namelist, int count_entries)
 }
 void long_list(struct stat *info, struct dirent **namelist, int count_entries)
 {
-    
-}      
+    char per_type[11];
+    char user_name[32]; //it is set to 32 since it is max
+    char group_name[32];
+    for(int idx = 0; idx < count_entries; idx++)
+    {
+        mode_decoder(info[idx], per_type);
+        user_name_decode(info[idx].st_uid, user_name);
+        group_name_decode(info[idx].st_gid, group_name);
+        printf("%s %ld %s %s ", per_type, info[idx].st_nlink, user_name, group_name);
+        
+        printf("\n");
+    }
+} 
+void mode_decoder(struct stat buf, char *str) //this code is courtessy of Sir Arif butt :) 
+{
+    int mode = buf.st_mode; 
+    strcpy(str, "----------");
+   //owner  permissions
+   if((mode & 0000400) == 0000400) str[1] = 'r';
+   if((mode & 0000200) == 0000200) str[2] = 'w';
+   if((mode & 0000100) == 0000100) str[3] = 'x';
+    //group permissions
+   if((mode & 0000040) == 0000040) str[4] = 'r';
+   if((mode & 0000020) == 0000020) str[5] = 'w';
+   if((mode & 0000010) == 0000010) str[6] = 'x';
+    //others  permissions
+   if((mode & 0000004) == 0000004) str[7] = 'r';
+   if((mode & 0000002) == 0000002) str[8] = 'w';
+   if((mode & 0000001) == 0000001) str[9] = 'x';
+    //special  permissions
+   if((mode & 0004000) == 0004000) str[3] = 's';
+   if((mode & 0002000) == 0002000) str[6] = 's';
+   if((mode & 0001000) == 0001000) str[9] = 't';
+   //setting the file type
+   if ((buf.st_mode &  0170000) == 0010000) 
+		str[0]='p';
+   else if ((buf.st_mode &  0170000) == 0020000) 
+		str[0]='c';
+   else if ((buf.st_mode &  0170000) == 0040000) 
+		str[0]='d';
+   else if ((buf.st_mode &  0170000) == 0060000) 
+		str[0]='b';
+   else if ((buf.st_mode &  0170000) == 0100000) 
+		str[0]='-';
+   else if ((buf.st_mode &  0170000) == 0120000) 
+		str[0]='l';
+   else if ((buf.st_mode &  0170000) == 0140000) 
+		str[0]='s';
+   else 
+		str[0]='u';
+}
+void user_name_decode(int uid, char *user_name)
+{
+    struct passwd * pwd = getpwuid(uid);
+    memset(user_name, '\0', 32);
+    strcpy(user_name,pwd->pw_name);
+}     
+void group_name_decode(int gid, char *group_name)
+{
+    struct group * grp = getgrgid(gid);
+    memset(group_name, '\0', 32);
+    strcpy(group_name, grp->gr_name);
+}
