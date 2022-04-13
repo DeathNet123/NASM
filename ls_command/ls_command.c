@@ -35,6 +35,7 @@ void group_name_decode(int gid, char *group_name);
 void set_size(struct dirent * entry, struct stat info, char *size);
 void set_time(long seconds, char *times);
 void handle_options(int argc, char *argv[]);
+void handle_recursive(char *dir_name);
 int main(int argc, char *argv[])
 {
     real_count  = argc;
@@ -57,16 +58,28 @@ int main(int argc, char *argv[])
         {
             if(argv[idx] == NULL)
                 continue;
+            
             if(real_count > 2)
                 printf("%s:\n", argv[idx]);
-            populate_data(argv[idx]);
+            if(MASK & RECURSIVE)
+            {
+                handle_recursive(argv[idx]);
+            }
+            else    
+                populate_data(argv[idx]);
+            
             if(real_count > 2)
                 printf("\n\n");
         }
     }
     else
     {
-        populate_data(".");
+        if(MASK & RECURSIVE)
+        {
+                handle_recursive(".");
+        }
+        else    
+            populate_data(".");
     }
     return 0;
 }
@@ -279,4 +292,75 @@ void handle_options(int argc, char *argv[])
             argv[idx] = NULL;
         }
     }
+}
+void handle_recursive(char *dir_name)
+{
+    struct stat *info;//will hold the information of the file...
+    struct dirent **namelist;//will hold the entries of the directory..
+    //reading the entries
+    int count_entries = 0; // number of entries in the directory..
+    count_entries = scandir(dir_name, &namelist, NULL, alphasort); // it will scandir and place the read structure in my namelist
+    /*
+    int scandir(const char *dirp, struct dirent **namelist,
+            int (*filter)(const struct dirent *),
+            int (*compar)(const struct dirent **, const struct dirent **));
+    here the comparison function is alphasort and Filter is pointed towards NULL
+    scandir allocate memory by itself but have to deallocate it
+    */
+   char path_name[PATH_MAX]; //for storing the path
+    if(count_entries < 0)
+    {
+        perror("scandir");
+        exit(errno);
+    }
+    else
+    {
+        info = malloc(count_entries * sizeof(struct stat));
+        for(int idx = 0; idx < count_entries; idx++)
+        {
+            sprintf(path_name, "%s/%s", dir_name, namelist[idx]->d_name);
+            int status = lstat(path_name, &info[idx]);
+            if(status == -1)
+            {
+                perror("lstat");
+            }
+        }
+    }
+    //Till yet it is same as normal populate function
+    int ll = 0; //the number DIR  entries in the directory
+    
+    //Any array that will store the Name of DIRS that will be found in this DIR
+    char** arr = (char**)malloc(count_entries * sizeof(char*));
+    for (int idx = 0; idx < count_entries; idx++)
+        arr[idx] = (char*)malloc(100 * sizeof(char));
+    
+    for(int idx = 0; idx < count_entries; idx++)
+    {
+        if((strcmp(namelist[idx]->d_name, "..") == 0) || ((namelist[idx]->d_name[0] == '.') && (strlen(namelist[idx]->d_name) != 1)))
+            continue;
+        //if DIR then     
+        if(namelist[idx]->d_type == DT_DIR)
+        {
+            sprintf(arr[ll++], "%s/%s", dir_name, namelist[idx]->d_name);
+            printf("%s/%s:\n", dir_name, namelist[idx]->d_name);
+            if(MASK & LONG_LIST)
+                long_list(info, namelist, count_entries);
+            else
+                smart_show(info, namelist, count_entries);
+            printf("\n");
+        }        
+    }
+    for(int idx = 0; idx < count_entries; idx++)
+    {
+        free(namelist[idx]);
+    }
+    free(namelist);
+    for(int idx = 1; idx < ll; idx++)
+        handle_recursive(arr[idx]);
+    for(int idx = 0; idx < count_entries; idx++)
+    {
+        free(arr[idx]);
+    }
+    free(arr);
+    return;
 }
