@@ -28,7 +28,7 @@ static int real_count = 0;
 void  populate_data(char *dir_name);
 void free_mem(int mem_size, struct stat *info, struct dirent **namelist);
 void smart_show(struct stat *info, struct dirent **namelist, int count_entries);
-void long_list(struct stat *info, struct dirent **namelist, int count_entries);
+void long_list(struct stat *info, struct dirent **namelist, int count_entries, char *dirname);
 void mode_decoder(struct stat buf, char *mode);
 void user_name_decode(int uid, char *user_name);
 void group_name_decode(int gid, char *group_name);
@@ -116,7 +116,7 @@ void populate_data(char *dir_name)
             }
         }
         if(MASK & LONG_LIST)
-            long_list(info, namelist, count_entries);
+            long_list(info, namelist, count_entries, dir_name);
         else
             smart_show(info, namelist, count_entries);
         
@@ -153,7 +153,7 @@ void smart_show(struct stat *info, struct dirent **namelist, int count_entries)
         printf(" %s ", namelist[idx]->d_name);
     }
 }
-void long_list(struct stat *info, struct dirent **namelist, int count_entries)
+void long_list(struct stat *info, struct dirent **namelist, int count_entries, char *dirname)
 {
     int total = 0;
     for(int idx = 0; idx < count_entries; idx++)
@@ -181,8 +181,10 @@ void long_list(struct stat *info, struct dirent **namelist, int count_entries)
         printf("%s %ld %s %s %s %s %s", per_type, info[idx].st_nlink, user_name, group_name, size, times, namelist[idx]->d_name);
         if(namelist[idx]->d_type == DT_LNK)
         {
+            char real[PATH_MAX];
+            sprintf(real,"%s/%s", dirname, namelist[idx]->d_name);
             char filename[PATH_MAX];
-            int n = readlink(namelist[idx]->d_name, filename, PATH_MAX);
+            int n = readlink(real, filename, PATH_MAX);
             filename[n] = '\0';
             printf(" -> %s", filename);
         }
@@ -335,7 +337,7 @@ void handle_recursive(char *dir_name)
         arr[idx] = (char*)malloc(100 * sizeof(char));
     printf("%s:\n", dir_name);
     if(MASK & LONG_LIST)
-                long_list(info, namelist, count_entries);
+                long_list(info, namelist, count_entries, dir_name);
             else
                 smart_show(info, namelist, count_entries);
             printf("\n");
