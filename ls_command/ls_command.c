@@ -156,17 +156,22 @@ void smart_show(struct stat *info, struct dirent **namelist, int count_entries)
 void long_list(struct stat *info, struct dirent **namelist, int count_entries, char *dirname)
 {
     int total = 0;
+    int max_link = 0;
     for(int idx = 0; idx < count_entries; idx++)
     {
+        if(info[idx].st_nlink > max_link)
+            max_link = info[idx].st_nlink;
         total += info[idx].st_blocks;
     }
     printf("total : %d\n", total/2);
-     
+    char buffer[10];
+    sprintf(buffer, "%d", max_link);
+    int link_count = strlen(buffer);
     char per_type[11];
     char user_name[32]; //it is set to 32 since it is max
     char group_name[32]; // it is also 32
-    char size[50]; //it is being taken as string because we will test the block and char file so different answer
-    char times[17];
+    char size[20]; //it is being taken as string because we will test the block and char file so different answer
+    char times[16];
     for(int idx = 0; idx < count_entries; idx++)
     {
         if((namelist[idx]->d_name[0] == '.') && !(MASK & HIDDEN))
@@ -178,7 +183,7 @@ void long_list(struct stat *info, struct dirent **namelist, int count_entries, c
         group_name_decode(info[idx].st_gid, group_name);
         set_size(namelist[idx], info[idx], size);
         set_time(info[idx].st_mtime, times);
-        printf("%s %ld %s %s %s %s %s", per_type, info[idx].st_nlink, user_name, group_name, size, times, namelist[idx]->d_name);
+        printf("%s %*ld %5s %5s %7s %s %s", per_type, link_count, info[idx].st_nlink, user_name, group_name, size, times, namelist[idx]->d_name);
         if(namelist[idx]->d_type == DT_LNK)
         {
             char real[PATH_MAX];
@@ -244,23 +249,19 @@ void group_name_decode(int gid, char *group_name)
 }
 void set_size(struct dirent * entry, struct stat info, char *size)
 {
-    memset(size, '\0', 50);
+    memset(size, '\0', 19);
     if(entry-> d_type == DT_BLK || entry-> d_type == DT_CHR) 
     {
         unsigned int maj = major(info.st_rdev);
         unsigned int min = minor(info.st_rdev);
-        sprintf(size, "%d, %d",maj, min);
+        sprintf(size, "%3d, %3d",maj, min);
     }
     else
-    sprintf(size, "%ld", info.st_size);
+    sprintf(size, "%8ld", info.st_size);
 }
 void set_time(long seconds, char *times)
 {
-    char timer[30];
-    memset(times, '0', sizeof(char) * 16);
-    times[17] - '\0';
-    sprintf(timer, "%s", ctime(&seconds));
-    memcpy(times, timer, 16);
+    sprintf(times, "%.*s", 12, ctime(&seconds)+ 4);
 }
 void handle_options(int argc, char *argv[])
 {
