@@ -91,7 +91,7 @@ void populate_data(char *dir_name)
     int count_entries = 0; // number of entries in the directory..
     count_entries = scandir(dir_name, &namelist, NULL, alphasort); // it will scandir and place the read structure in my namelist
     /*
-    int scandir(const char *dirp, struct dirent **namelist,
+    int scandir(const char *dirp, struct dirent ***namelist,
             int (*filter)(const struct dirent *),
             int (*compar)(const struct dirent **, const struct dirent **));
     here the comparison function is alphasort and Filter is pointed towards NULL

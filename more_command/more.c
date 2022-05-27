@@ -88,7 +88,7 @@ void print_stuff(FILE *printer, int file_overall)
                     tcsetattr(fd, TCSANOW, &info);
                     exit(0);
                 case ' ':
-                    printf("\n");//this line will add the newline when space bar is pressed so that line 59 can erase the --MORE--
+                    printf("\n");//this line will add the newline when space bar is pressed so that line 115 can erase the --MORE--
                     idx = 0;
                     break;
                 case 'v':
