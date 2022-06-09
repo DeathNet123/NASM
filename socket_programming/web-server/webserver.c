@@ -26,14 +26,14 @@ int main(int argc, char *argv[])
     listen(server_socket_fd, 10);
     while (1) 
     {
-        printf("Mhmm listening for the request..");
+        printf("Mhmm listening for the request..\n");
         int c_len = sizeof(client_address);
         client_socket_fd = accept(server_socket_fd, (struct sockaddr *) &client_address, &c_len);
         int rv = 0;
         char buf[1024];
         while(rv = read(client_socket_fd, buf, rv))
             write(1, buf, rv);
-        printf("Bye bye the test has been completed");
+        printf("Bye bye the test has been completed\n");
         close(client_socket_fd);
     }
     close(server_socket_fd);
