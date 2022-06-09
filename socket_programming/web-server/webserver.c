@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 
     server_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(8080); //alternative port to 80
+    server_address.sin_port = htons(54154); //alternative port to 80
     inet_aton("192.168.18.24", &server_address.sin_addr);
     memset(&server_address.sin_zero, '\0', sizeof(server_address.sin_zero));
     bind(server_socket_fd, (struct sockaddr *) &server_address, sizeof(server_address));
