@@ -3,21 +3,30 @@
 #include <string.h>
 #include <sys/types.h>
 #include<errno.h>
+#include<signal.h>
 #include<netinet/in.h>
 #include<arpa/inet.h>
 #include<netdb.h>
 #include<sys/socket.h>
 #include<fcntl.h>
 #include<time.h>
+#include<wait.h>
 #include<unistd.h>
 #define MAXREQ 2048
 #define MAXRES 2048
+
+void reaper(int signum)
+{
+    waitpid(-1, NULL, 0);
+}
 void handle_request(char *request, int client_socket, int rv)
 {
+        time_t now;
+        time(&now);
         char response[MAXRES];//for storing the response header..
         //finding the version number of the request..
         char *v = strstr(request, "HTTP/");
-        strtok(v, "\r");
+        strtok(v, "\r");//the delim is the carriage return in HTTP/1.1 anyways..
 
         #ifdef DEBUG
         char ver[10];
@@ -41,7 +50,7 @@ void handle_request(char *request, int client_socket, int rv)
         
         if(fd > 0)
         {
-            int count = snprintf(response, MAXRES, "%s 200 OK\nServer:%s\nContent-Type:text/html\n", v, hostname);
+            int count = snprintf(response, MAXRES, "%s 200 OK\nDate:%sServer:%s\nContent-Type:text/html\n", v, strtok(ctime(&now), "\n"), hostname);
             printf("%s", response);
             write(client_socket, response, count); //sending the header first..
             char body[MAXREQ];
@@ -54,7 +63,7 @@ void handle_request(char *request, int client_socket, int rv)
         }
         else
         {
-            int count = sprintf(response, "%s 404 NOT FOUND\nServer:%s\n", v, hostname);
+            int count = sprintf(response, "%s 404 NOT FOUND\nDate:%sServer:%s\n", v, strtok(ctime(&now), "\n"), hostname);
             write(client_socket, response, count);
         }
         return;
@@ -72,6 +81,7 @@ void add_logs(int logs_fd, char *buf, int rv, struct sockaddr_in client_addr)
 
 int main(int argc, char **argv)
 {
+    signal(SIGCHLD, reaper);
     int server_socket = socket(AF_INET, SOCK_STREAM, 0); //server socket
     int client_socket; //this is client socket
     int logs_fd = open("log.txt", O_APPEND|O_RDWR); //the log file
@@ -92,20 +102,26 @@ int main(int argc, char **argv)
         int c_len = sizeof(client_addr);
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &c_len);
         printf("Request has been received..\n");
-        int rv = 0;
-        char request[MAXREQ];
-        rv = recv(client_socket, request, MAXREQ, 0);
-        #ifdef DEBUG
-        for(int idx = 0; idx < rv; idx++) 
+        int cpid = fork();
+        if(cpid == 0)
         {
-            printf("%d ", request[idx]);
+            close(server_socket);
+            int rv = 0;
+            char request[MAXREQ];
+            rv = recv(client_socket, request, MAXREQ, 0);
+            add_logs(logs_fd, request, rv, client_addr); //adding the logs
+            handle_request(request, client_socket, rv);//handling the request
+            memset(request, '\0', rv);
+            close(client_socket);
+            exit(0);
         }
-        #endif
-        add_logs(logs_fd, request, rv, client_addr); //adding the logs
-        handle_request(request, client_socket, rv);//handling the request
-        printf("Request has been entertained..\n");
-        memset(request, '\0', rv);
-        close(client_socket);
+        else
+        {
+            close(client_socket);
+            continue;
+        }
+            
+
     }
     close(server_socket);
     close(logs_fd);
