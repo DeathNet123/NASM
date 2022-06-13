@@ -17,6 +17,9 @@ void handle_request(char *request, int client_socket, int rv)
         char response[MAXRES];//for storing the response header..
         //finding the version number of the request..
         char *v = strstr(request, "HTTP/");
+        strtok(v, "\r");
+
+        #ifdef DEBUG
         char ver[10];
         int idx = 0;
         while ((v[idx] >= 65 && v[idx] <= 90) || v[idx] == '/' || (v[idx] >= 48 && v[idx] <= 57) || v[idx] == '.')
@@ -24,6 +27,8 @@ void handle_request(char *request, int client_socket, int rv)
             ver[idx] = v[idx];
             idx++;
         }
+        #endif
+
         //finding the resource from the request
         char *resource = strstr(request, "GET");
         strtok(resource, " ");
@@ -36,7 +41,7 @@ void handle_request(char *request, int client_socket, int rv)
         
         if(fd > 0)
         {
-            int count = snprintf(response, MAXRES, "%s 200 OK\nServer:%s\nContent-Type:text/html\n", ver, hostname);
+            int count = snprintf(response, MAXRES, "%s 200 OK\nServer:%s\nContent-Type:text/html\n", v, hostname);
             printf("%s", response);
             write(client_socket, response, count); //sending the header first..
             char body[MAXREQ];
@@ -49,7 +54,7 @@ void handle_request(char *request, int client_socket, int rv)
         }
         else
         {
-            int count = sprintf(response, "%s 404 NOT FOUND\nServer:%s\n", ver, hostname);
+            int count = sprintf(response, "%s 404 NOT FOUND\nServer:%s\n", v, hostname);
             write(client_socket, response, count);
         }
         return;
@@ -90,6 +95,12 @@ int main(int argc, char **argv)
         int rv = 0;
         char request[MAXREQ];
         rv = recv(client_socket, request, MAXREQ, 0);
+        #ifdef DEBUG
+        for(int idx = 0; idx < rv; idx++) 
+        {
+            printf("%d ", request[idx]);
+        }
+        #endif
         add_logs(logs_fd, request, rv, client_addr); //adding the logs
         handle_request(request, client_socket, rv);//handling the request
         printf("Request has been entertained..\n");
