@@ -21,7 +21,7 @@ int main(void)
     s_socket = socket(AF_INET, SOCK_STREAM, 0); //socket created for the server to listen...
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(54154);
-    inet_aton("192.168.18.24", &server_addr.sin_addr);
+    inet_aton("172.22.74.129", &server_addr.sin_addr);
     memset(&server_addr.sin_zero, '\0', sizeof(server_addr.sin_zero));
     bind(s_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)); //binding the socket with port
     
