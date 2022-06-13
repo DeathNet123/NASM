@@ -11,27 +11,47 @@
 #include<time.h>
 #include<unistd.h>
 #define MAXREQ 2048
-
-void handle_request(char *buf, int client_socket, int rv)
+#define MAXRES 2048
+void handle_request(char *request, int client_socket, int rv)
 {
-        write(1, buf, rv);
-        char *l = strstr(buf, "GET");
-        strtok(l, " ");
+        char response[MAXRES];//for storing the response header..
+        //finding the version number of the request..
+        char *v = strstr(request, "HTTP/");
+        char ver[10];
+        int idx = 0;
+        while ((v[idx] >= 65 && v[idx] <= 90) || v[idx] == '/' || (v[idx] >= 48 && v[idx] <= 57) || v[idx] == '.')
+        {
+            ver[idx] = v[idx];
+            idx++;
+        }
+        //finding the resource from the request
+        char *resource = strstr(request, "GET");
+        strtok(resource, " ");
         char *required = strtok(NULL, " ");
+        //opening up the required resource..
         int fd = open(required + 1, O_RDONLY);
+        size_t length = 25;
+        char hostname[length];
+        gethostname(hostname, length);
+        
         if(fd > 0)
         {
-            write(client_socket, "HTTP/1.1 200 OK\n", 17);
+            int count = snprintf(response, MAXRES, "%s 200 OK\nServer:%s\nContent-Type:text/html\n", ver, hostname);
+            printf("%s", response);
+            write(client_socket, response, count); //sending the header first..
             char body[MAXREQ];
-            int acrv;
-            while (acrv = read(fd, body, MAXREQ))
+            int acrv = 0;
+            while (acrv = read(fd, body, MAXREQ ))
             {
                 write(client_socket, body, acrv);
             }
             close(fd);
         }
         else
-            write(client_socket, "HTTP/1.1 404 NOT FOUND\n", 24);
+        {
+            int count = sprintf(response, "%s 404 NOT FOUND\nServer:%s\n", ver, hostname);
+            write(client_socket, response, count);
+        }
         return;
               
 }
@@ -68,12 +88,12 @@ int main(int argc, char **argv)
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &c_len);
         printf("Request has been received..\n");
         int rv = 0;
-        char buf[MAXREQ];
-        rv = recv(client_socket, buf, MAXREQ, 0);
-        add_logs(logs_fd, buf, rv, client_addr); //adding the logs
-        handle_request(buf, client_socket, rv);//handling the request
+        char request[MAXREQ];
+        rv = recv(client_socket, request, MAXREQ, 0);
+        add_logs(logs_fd, request, rv, client_addr); //adding the logs
+        handle_request(request, client_socket, rv);//handling the request
         printf("Request has been entertained..\n");
-        memset(buf, '\0', rv);
+        memset(request, '\0', rv);
         close(client_socket);
     }
     close(server_socket);
