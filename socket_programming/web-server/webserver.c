@@ -8,6 +8,7 @@
 #include<arpa/inet.h>
 #include<netdb.h>
 #include<sys/socket.h>
+#include<sys/stat.h>
 #include<fcntl.h>
 #include<time.h>
 #include<wait.h>
@@ -19,6 +20,37 @@ void reaper(int signum)
 {
     waitpid(-1, NULL, 0);
 }
+
+void handle_body(char *required, int client_socket)
+{
+    struct stat st;
+    lstat(required, &st);
+    if(((st.st_mode & 0000100) != 0000100) && ((st.st_mode & 0170000) == 0100000))
+    {
+        int fd = open(required, O_RDONLY);
+        char body[MAXREQ];
+        int acrv = 0;
+        while (acrv = read(fd, body, MAXREQ ))
+        {
+            write(client_socket, body, acrv);
+        }
+        close(fd);
+    }
+    else if(((st.st_mode & 0000100) == 0000100) && ((st.st_mode & 0170000) == 0100000))
+    {
+        int cpid = fork();
+        if(cpid == 0)
+        { 
+            dup2(client_socket, 1);
+            execv(required, NULL);
+        }
+        else{
+            wait(NULL);
+        }
+            
+    }
+}
+
 void handle_request(char *request, int client_socket, int rv)
 {
         time_t now;
@@ -27,7 +59,6 @@ void handle_request(char *request, int client_socket, int rv)
         //finding the version number of the request..
         char *v = strstr(request, "HTTP/");
         strtok(v, "\r");//the delim is the carriage return in HTTP/1.1 anyways..
-
         #ifdef DEBUG
         char ver[10];
         int idx = 0;
@@ -42,29 +73,23 @@ void handle_request(char *request, int client_socket, int rv)
         char *resource = strstr(request, "GET");
         strtok(resource, " ");
         char *required = strtok(NULL, " ");
-        //opening up the required resource..
-        int fd = open(required + 1, O_RDONLY);
+
+        //Setting up the hostname of the server
         size_t length = 25;
         char hostname[length];
         gethostname(hostname, length);
         
-        if(fd > 0)
+        int test = access(required + 1, F_OK); //checking the existence of the file
+        if(test < 0)
         {
-            int count = snprintf(response, MAXRES, "%s 200 OK\nDate:%sServer:%s\nContent-Type:text/html\n", v, strtok(ctime(&now), "\n"), hostname);
-            printf("%s", response);
-            write(client_socket, response, count); //sending the header first..
-            char body[MAXREQ];
-            int acrv = 0;
-            while (acrv = read(fd, body, MAXREQ ))
-            {
-                write(client_socket, body, acrv);
-            }
-            close(fd);
+            int count = sprintf(response, "%s 404 NOT FOUND\nDate:%s\nServer:%s\n", v, strtok(ctime(&now), "\n"), hostname);
+            write(client_socket, response, count);
         }
         else
-        {
-            int count = sprintf(response, "%s 404 NOT FOUND\nDate:%sServer:%s\n", v, strtok(ctime(&now), "\n"), hostname);
-            write(client_socket, response, count);
+        { 
+            int count = snprintf(response, MAXRES, "%s 200 OK\nDate:%s\nServer:%s\nContent-Type:text/html\n", v, strtok(ctime(&now), "\n"), hostname);
+            write(client_socket, response, count); //sending the header first..
+            handle_body(required + 1, client_socket);
         }
         return;
               
@@ -111,7 +136,6 @@ int main(int argc, char **argv)
             rv = recv(client_socket, request, MAXREQ, 0);
             add_logs(logs_fd, request, rv, client_addr); //adding the logs
             handle_request(request, client_socket, rv);//handling the request
-            memset(request, '\0', rv);
             close(client_socket);
             exit(0);
         }
