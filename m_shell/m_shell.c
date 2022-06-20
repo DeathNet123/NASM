@@ -77,7 +77,7 @@ bool handle_control_command(char *command, regex_t *control_preg)
     else op = 2;
     char *argv[ARG_NUM];
     int deep_well = regexec(control_preg, left, CONTROL_COMMAND_GROUP, pmatch, 0);
-    handle_control_command(left, control_preg);
+    int last_status = handle_control_command(left, control_preg);
     if(deep_well != 0)
     {
         switch(op) 
@@ -112,7 +112,7 @@ bool handle_control_command(char *command, regex_t *control_preg)
         switch (op)
         {
             case 1:
-                if(deep_well == true)
+                if(last_status == true)
                 {
                     int status = spawn_child(right, argv);
                     if(WIFEXITED(status))
