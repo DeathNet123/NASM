@@ -12,6 +12,7 @@
 #include<wait.h>
 
 extern char **environ;
+int control_command = 0;
 
 #define DEV
 
@@ -20,7 +21,7 @@ bool handle_control_command(char *command, regex_t *control_preg);//this will ha
 int spawn_child(char *file, char **argv); //this function will called when the child process has to be created and command is external one.
 bool type_a(char * file); //this function will test weather the command is internal or external it is bool right now later will return struct..
 int handle_internal_command(char *file /*, struct later will be added as function pointer*/);//this function will called when the internal command is encountered
-void clean_command(char *command);
+void clear_command(char *command);
 
 int main(int argc, char **argv)
 {
@@ -37,6 +38,7 @@ int main(int argc, char **argv)
     #endif
     while(true)
     {
+        memset(command, '\0', MAX_CMD_LEN);
         #ifndef DEV
         printf("(%s@%s)-[%s]-$ ", getenv("LOGNAME"), getenv("NAME"), strcmp(getenv("HOME"), getenv("HOME"))?"~":getenv("PWD"));  
         #endif
@@ -44,9 +46,9 @@ int main(int argc, char **argv)
         printf("\n(%s@%s)-$ ", getenv("LOGNAME"), getenv("NAME"));
         #endif
         fgets(command, MAX_CMD_LEN, stdin);
-        clean_command(command);
         printf("%s", command);
-        handle_control_command(command, &control_preg); //calling 
+        handle_control_command(strtok(command, "\n"), &control_preg); //checking for the control commands if exist...
+        if(control_command) continue;
     }
 	return 0;
 }
@@ -59,6 +61,7 @@ bool handle_control_command(char *command, regex_t *control_preg)
     {
         return false;
     } 
+    control_command = 1;
     //extracting the peices of the control command
     char left[pmatch[1].rm_eo - pmatch[1].rm_so + 1];
     char operator[3];
@@ -159,14 +162,17 @@ int spawn_child(char *file, char **argv)
 
 void clean_command(char *command)
 {
-    char cmd[MAX_CMD_LEN];
-    for(int idx = 0; idx < strlen(command); idx++)
+    char cmd[1024];
+    memset(cmd, '\0', 1024);
+    int count = 0;
+    strcpy(cmd, command);
+    printf("%s\n", cmd);
+    memset(command, '\0', 1024);
+    for(int idx = 0; idx < 1024; idx++)
     {
-        if((command[idx] >= '0' && command[idx] <= '9') || (command[idx] >= 'a' && command[idx] <= 'z') || command[idx] == '&' || command[idx] == '|' || command[idx] == '>' || command[idx] == '<' || (command[idx] >= 'A' && command[idx] <= 'Z'))
+        if((cmd[idx] >= 'a' && cmd[idx] <= 'z') || (cmd[idx] >= 'A' && cmd[idx] == 'Z') || (cmd[idx] >= '0' && cmd[idx] <= '9') || cmd[idx] == '-' || cmd[idx] == '&' || cmd[idx] == '|') 
         {
-            cmd[idx] = command[idx];
+            command[count++] = cmd[idx];
         }
     }
-    strcpy(command, cmd);
-    command[strlen(command)] = '\0';
 }
