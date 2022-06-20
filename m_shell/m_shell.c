@@ -80,22 +80,21 @@ bool handle_control_command(char *command, regex_t *control_preg)
             {
                 int rv = execvp(left, arg_left);
                 perror("execv");
-                printf("%d", rv);
             }
             else
             {
                 int status;
                 wait(&status);
-            
                 if(WIFEXITED(status))
-                {
+                {s
                     char *arg_right[ARG_NUM];
                     arg_right[0] = right;
                     arg_right[1] = NULL; 
                     int right_fork = fork();
                     if(right_fork == 0)
                     {
-                        execvp(right, arg_right);
+                        execvp(strtok(right, "\n"), arg_right);
+                        perror("execv");
                     }
                     else
                     {
