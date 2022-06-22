@@ -9,4 +9,5 @@
 #define SABNORMAL -60 //this the main exit status...
 #define COMMAND_NOT_FOUND 32512
 #define COM_NOT_EXIST 127
+#define PIPE_CMD_GROUP 3
 #endif

@@ -2,6 +2,8 @@
     "files.associations": {
         "*.nasm": "nasm",
         "*.cpp": "cpp",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "m_shell_struct.h": "c",
+        "constant.h": "c"
     }
 }
