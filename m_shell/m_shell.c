@@ -6,6 +6,7 @@
 #include<fcntl.h>
 #include <sys/types.h>
 #include<constant.h> //this is my header
+#include<m_shell_struct.h>
 #include <sys/wait.h>
 #include<regex.h>
 #include<unistd.h>
@@ -16,12 +17,13 @@ int control_command = 0;
 
 #define DEV
 
-bool handle_control_command(char *command, regex_t *control_preg);//this will handle the logical Operators in the given in put
+int handle_control_command(char *command, regex_t *control_preg);//this will handle the logical Operators in the given in put
 /*Handle control is the main entry point and shell will always check for it */
 int spawn_child(char *file, char **argv); //this function will called when the child process has to be created and command is external one.
-bool type_a(char * file); //this function will test weather the command is internal or external it is bool right now later will return struct..
-int handle_internal_command(char *file /*, struct later will be added as function pointer*/);//this function will called when the internal command is encountered
+internal_command type_a(char * command); //this function will test weather the command is internal or external 
+int handle_internal_command(char *command, internal_command meta_data); //this function will called when the internal command is encountered
 void clear_command(char *command);
+int handle_command_generic(char *command);
 
 int main(int argc, char **argv)
 {
@@ -29,6 +31,7 @@ int main(int argc, char **argv)
     regex_t control_preg;
     regcomp(&control_preg, "(.+)(&&|[|][|])(.+)", REG_EXTENDED);
     
+    handle_command_generic("clear"); //this will cause the shell to clear the screen..
     char command[MAX_CMD_LEN];//buffer for holding the command
     #ifdef DEBUG
     for(int idx = 0; environ[idx] != NULL; idx++)
@@ -36,7 +39,7 @@ int main(int argc, char **argv)
         printf("%s\n", environ[idx]);
     }
     #endif
-    while(true)
+    while(1)
     {
         memset(command, '\0', MAX_CMD_LEN);
         #ifndef DEV
@@ -48,18 +51,23 @@ int main(int argc, char **argv)
         fgets(command, MAX_CMD_LEN, stdin);
         printf("%s", command);
         handle_control_command(strtok(command, "\n"), &control_preg); //checking for the control commands if exist...
-        if(control_command) continue;
+        if(control_command)
+        {
+            control_command = 0;
+            continue;
+        }
+        handle_command_generic(command);
     }
 	return 0;
 }
 
-bool handle_control_command(char *command, regex_t *control_preg)
+int handle_control_command(char *command, regex_t *control_preg)
 {
     regmatch_t pmatch[CONTROL_COMMAND_GROUP];
     int test = regexec(control_preg, command, CONTROL_COMMAND_GROUP, pmatch, 0);
     if(test) //check if command contains logical Operators or not..
     {
-        return false;
+        return 0;
     } 
     control_command = 1;
     //extracting the peices of the control command
@@ -78,30 +86,31 @@ bool handle_control_command(char *command, regex_t *control_preg)
     int op = 0;
     if(strcmp(operator, "&&") == 0) op = 1;
     else op = 2;
-    char *argv[ARG_NUM];
-    int deep_well = regexec(control_preg, left, CONTROL_COMMAND_GROUP, pmatch, 0);
+    
+    int deep_well = regexec(control_preg, left, CONTROL_COMMAND_GROUP, pmatch, 0); //checking weather we have to break down further or not...
     int last_status = handle_control_command(left, control_preg);
-    if(deep_well != 0)
+    
+    if(deep_well != 0)//if we don't have to break the command further will stop and handle the both left and right side and return..
     {
         switch(op) 
         {
             case 1:
                 {
                     int right_status = 0;
-                    int status = spawn_child(left, argv);  
+                    int status = handle_command_generic(left);  
                     if(WIFEXITED(status) && status >> 8 != COM_NOT_EXIST) //if the left child exited normally then go fo rthe right thus satisfying the && logical Operator..
                     {
-                        right_status = spawn_child(right, argv);
+                        right_status = handle_command_generic(right);
                         if(WIFEXITED(right_status))
-                            return true;
-                        else return false;
+                            return 1;
+                        else return 0;
                     }
-                    else return false;
+                    else return 0;
                 }
                 break;
             case 2:
-                int left_status = spawn_child(left, argv);
-                int right_status = spawn_child(right, argv);
+                int left_status = handle_command_generic(left);
+                int right_status = handle_command_generic(right);
                 return WIFEXITED(left_status) || WIFEXITED(right_status);
                 break;
             default:
@@ -110,23 +119,23 @@ bool handle_control_command(char *command, regex_t *control_preg)
                 break;
         }
     }
-    else
+    else //this will occur once all of the stacks will be getting exhausted in reverse order..
     {
         switch (op)
         {
             case 1:
-                if(last_status == true)
+                if(last_status == 1)
                 {
-                    int status = spawn_child(right, argv);
+                    int status = handle_command_generic(right);
                     if(WIFEXITED(status))
-                        return true;
-                    else return false;
+                        return 1;
+                    else return 0;
                 } 
-                else return false;
+                else return 0;
                 break;
             case 2:
-                int status = spawn_child(right, argv);
-                return deep_well && WIFEXITED(status);
+                int status = handle_command_generic(right);
+                return last_status && WIFEXITED(status);
                 break;
             default:
                 printf("\nTHERE WAS A PROBLEM IN RECURSION\n");
@@ -160,7 +169,7 @@ int spawn_child(char *file, char **argv)
     }
 }
 
-void clean_command(char *command)
+void clean_command(char *command) // the purpose of this function is to remove the characters such as \n and \r etc and extra white spaces
 {
     char cmd[1024];
     memset(cmd, '\0', 1024);
@@ -168,11 +177,23 @@ void clean_command(char *command)
     strcpy(cmd, command);
     printf("%s\n", cmd);
     memset(command, '\0', 1024);
+    char prev = cmd[0];
     for(int idx = 0; idx < 1024; idx++)
     {
-        if((cmd[idx] >= 'a' && cmd[idx] <= 'z') || (cmd[idx] >= 'A' && cmd[idx] == 'Z') || (cmd[idx] >= '0' && cmd[idx] <= '9') || cmd[idx] == '-' || cmd[idx] == '&' || cmd[idx] == '|') 
+        if(cmd[idx] == '~'||cmd[idx] == ' ' ||(cmd[idx] >= 'a' && cmd[idx] <= 'z') || (cmd[idx] >= 'A' && cmd[idx] == 'Z') || (cmd[idx] >= '0' && cmd[idx] <= '9') || cmd[idx] == '-' || cmd[idx] == '&' || cmd[idx] == '|') 
         {
-            command[count++] = cmd[idx];
+            if(prev != ' ' && cmd[idx] != ' ')
+                command[count++] = cmd[idx];
+            prev = cmd[idx];
         }
     }
+}
+
+int handle_command_generic(char *command)
+{
+    char *argv[ARG_NUM];
+    argv[0] = command;
+    argv[1] = NULL;
+    int rv = spawn_child(command, argv);
+    return rv;
 }
