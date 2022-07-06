@@ -15,13 +15,12 @@ This can be done by using the following regex:<br>
 <code>(.+)(&&|'|''|')(.+)</code>
 </p>
 <p>
-<code>int handle_logical_command(char *command, regex_t *logic_preg, regex_t *pipe_preg)</code> will use the above compiled regex in order to check weather the command has logical operators. if the regex didn't find any match then will return and the control will be passed to <code>int handle_command_pipes(char *command, regex_t *pipe_preg)</code>. If the regex finds the match it will break the command in segments on the basis of logical operators and pass the control to <code>int handle_command_pipes(char *command, regex_t *pipe_preg)</code> in sequence and later the function will pass the control to <code>int handle_command_generic(char *command)</code>. Once the control will return back to the main logical_handler function it will return the status and set the logical_command as 1 which will tell main function to prompt for the next command since the whole command must have been parsed and all the tasks have been performed
-</p>
+<code>int handle_logical_command(char *command, regex_t *logic_preg, regex_t *pipe_preg)</code> will use the above compiled regex in order to check weather the command has logical operators. if the regex didn't find any match then it will pass the control to <code>int handle_command_pipes(char *command, regex_t *pipe_preg)</code>. If the regex finds the match it will break the command in segments on the basis of logical operators and pass the control to <code>int handle_command_pipes(char *command, regex_t *pipe_preg)</code> in sequence and later the function will pass the control to <code>int handle_command_generic(char *command)</code>. Once the control will return back to the main logical_handler function it will return the status</p>
 
 ### Handling Commands with Pipes
 
 <p>
-Once the function <code>int handle_command_pipes(char *command, regex_t *pipe_preg)</code> get's either from the logical command handler function or from the main function it will check weather the command has pipes or not this can be done by using another regex :<br>
+Once the function <code>int handle_command_pipes(char *command, regex_t *pipe_preg)</code> get's called it will check weather the command has pipes or not this can be done by using another regex :<br>
 <code>(.+)\|(.+)</code><br>
 if the regex did not find any match we will return to main function if there is any pipe to handle then this function will handle them in sequence and pass control to generic command handler function once pipe function will be done processing the command it will return it's to it's parent calling function.
 </p>

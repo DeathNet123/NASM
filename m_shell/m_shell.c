@@ -11,22 +11,21 @@
 #include<regex.h>
 #include<unistd.h>
 #include<wait.h>
-#include<pipe.h>
 
 extern char **environ;
 int logical_command = 0;
-int pipe_command = 0;
 
 #define DEV
 
 int handle_logical_command(char *command, regex_t *logic_preg, regex_t *pipe_preg);//this will handle the logical Operators in the given in put
 /*Handle control is the main entry point and shell will always check for it */
-int spawn_child(char *file, char **argv, int wait_flag); //this function will called when the child process has to be created and command is external one.
+int spawn_child(char *file, char **argv, int wait_flag, int in, int out); //this function will called when the child process has to be created and command is external one.
 internal_command type_a(char * command); //this function will test weather the command is internal or external 
 int handle_internal_command(char *command, internal_command meta_data, char **argv); //this function will called when the internal command is encountered
-void clean_command(char *command);
-int handle_command_pipes(char *command, regex_t *pipe_preg);
-int handle_command_generic(char *command, int wait_flag);
+void clean_command(char *command); //this function will remove the extra white spaces and character such as \n, \r and more...
+int handle_command_pipes(char *command, regex_t *pipe_preg);//function to handle the pipe command
+int handle_command_generic(char *command, int wait_flag, int in, int out);//the is will be called to basic unit command..
+void create_pipe(int **fd_pipes, int idx);
 
 int main(int argc, char **argv)
 {
@@ -38,7 +37,7 @@ int main(int argc, char **argv)
     int status_dollar = 0; //this will hold the status of last command executed in $ variable..
     char command[MAX_CMD_LEN];//buffer for holding the command
 
-    handle_command_generic("clear"); //this will cause the shell to clear the screen..
+    handle_command_generic("clear", 1, -1, -1); //this will cause the shell to clear the screen..
     
     while(1)
     {
@@ -51,20 +50,14 @@ int main(int argc, char **argv)
         #endif
         fgets(command, MAX_CMD_LEN, stdin);
         clean_command(command);
-        /*
-        status_dollar = handle_logical_command(strtok(command, "\n"), &logic_preg, &pipe_preg); //checking for the control commands if exist...
+    
+        //status_dollar = handle_logical_command(strtok(command, "\n"), &logic_preg, &pipe_preg); //checking for the control commands if exist...
         if(logical_command)
         {
             logical_command = 0;
             continue;
-        }*/
-        status_dollar = handle_command_pipes(command, &pipe_preg);
-        if(pipe_command)
-        {
-            pipe_command = 0;
-            continue;
         }
-        status_dollar = handle_command_generic(command, 1);
+        status_dollar = handle_command_pipes(command, &pipe_preg);
     }
 
 	return 0;
@@ -160,15 +153,16 @@ int handle_logical_command(char *command, regex_t *logic_preg, regex_t *pipe_pre
     }
 }
 
-int spawn_child(char *file, char **argv, int wait_flag)
+int spawn_child(char *file, char **argv, int wait_flag, int in, int out)
 {
-    argv[0] = file;
-    argv[1] = NULL; 
-    /*the arguments will be filled by argument handler function later..*/
+
     int cpid = fork();
-    
     if(cpid == 0)
     {
+        
+        if(in != - 1) dup2(in, 0);
+        if(out != - 1) dup2(out, 1);
+
         int rv = execvp(file, argv);
         if(rv != 0)
         {
@@ -184,6 +178,7 @@ int spawn_child(char *file, char **argv, int wait_flag)
             wait(&status);
             return status;
         }
+        return 1;
     }
 }
 
@@ -213,35 +208,69 @@ int handle_command_pipes(char *command, regex_t *pipe_preg)
     regmatch_t pmatch[PIPE_CMD_GROUP];
     int count_pipes = 0; //this will decide how many pipes are needed to be created..
     int **fd_pipes;//will hold the file descriptor for each pipes
-    
+    char *cmd = NULL;
+
     int test = regexec(pipe_preg, command, PIPE_CMD_GROUP, pmatch, 0);
     if(test)
     {
-        return 0;
+        return handle_command_generic(command, 1, -1, -1); //if there is no pipe leave and move to the handle generic
     }
-    pipe_command = 1;
+    //count the number of pipes
     for(int idx = 0; command[idx] != '\0'; idx++)
     {
         if(command[idx] == '|')
             count_pipes++;
     }
-    printf("%d", count_pipes);
-    
+    //allocate the array of pipes_fd
     fd_pipes = (int **) malloc(count_pipes * sizeof(int *));
     for(int idx = 0; idx < count_pipes; idx++)
     {
         fd_pipes[idx] = (int *) malloc(sizeof(int) * 2);
     }
 
-    return 1;   
+    //sending the segments to command handler...
+    create_pipe(fd_pipes, 0);
+    strtok(command, "|");
+    handle_command_generic(command, 0, -1, fd_pipes[0][1]);
+    
+    for(int idx = 1; idx < count_pipes; idx++)
+    {
+        cmd = strtok(NULL, "|");
+        printf("%s", cmd);
+        create_pipe(fd_pipes, idx);
+        handle_command_generic(cmd, 0, fd_pipes[idx - 1][0], fd_pipes[idx][1]);
+    }
+    cmd = strtok(NULL, "|");
+    int last_status = handle_command_generic(cmd, 1, fd_pipes[count_pipes - 1][0], -1);
+    
+    for(int idx = 0; idx < count_pipes; idx++) {wait(NULL);}
+    
+    if(WIFEXITED(last_status))
+        return 1;
+    
+    return 0;   
 }
-int handle_command_generic(char *command, int wait_flag)
+
+int handle_command_generic(char *command, int wait_flag, int in, int out)
 {
     char *argv[ARG_NUM];
     argv[0] = command;
     argv[1] = NULL;
     
-    int rv = spawn_child(command, argv, wait_flag);
+    int rv = spawn_child(command, argv, wait_flag, in, out);
+
+    if(in != -1) close(in);
+    if(out != -1) close(out);
     
     return rv;
+}
+
+void create_pipe(int **fd_pipes, int idx)
+{
+    int rv_pipe = pipe(fd_pipes[idx]);
+    if(rv_pipe == 1)
+    {
+            perror("pipe");
+            exit(EXIT_FAILURE);
+    }
 }

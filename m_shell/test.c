@@ -18,7 +18,11 @@ int main(int argc, char **argv)
     {
         fgets(buff, sizeof(buff), stdin);
         clean_command(buff);
-        printf("%s\n", buff);
+        printf("%s\n", strtok(buff, "|"));
+        while(1)
+        {
+                printf("%s\n", strtok(NULL, "|"));
+        }
         memset(buff, 0, sizeof buff);
     }
 }
