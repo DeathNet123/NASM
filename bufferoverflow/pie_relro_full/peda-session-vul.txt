@@ -1,4 +1,2 @@
-break main
-
-
+break *getmessage + 76
 
