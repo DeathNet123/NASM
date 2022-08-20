@@ -4,8 +4,10 @@
 #include<string.h>
 #include<stdbool.h>
 #include<fcntl.h>
+#include<readline/readline.h>
+#include<readline/history.h>
 #include <sys/types.h>
-#include<constant.h> //this is my header
+#include<constant.h> 
 #include<m_shell_struct.h>
 #include <sys/wait.h>
 #include<regex.h>
@@ -14,6 +16,7 @@
 
 extern char **environ;
 int logical_command = 0;
+int command_flag = 1;
 
 #define DEV
 
@@ -25,7 +28,8 @@ int handle_internal_command(char *command, internal_command meta_data, char **ar
 void clean_command(char *command); //this function will remove the extra white spaces and character such as \n, \r and more...
 int handle_command_pipes(char *command, regex_t *pipe_preg);//function to handle the pipe command
 int handle_command_generic(char *command, int wait_flag, int in, int out);//the is will be called to basic unit command..
-void create_pipe(int **fd_pipes, int idx);
+void create_pipe(int **fd_pipes, int idx);//function used by handle_command_pipe to make commands 
+char **custom_command_completion(const char *text, int start, int end); //registed for the command completion function
 
 int main(int argc, char **argv)
 {
@@ -35,29 +39,32 @@ int main(int argc, char **argv)
     regcomp(&logic_preg, "(.+)(&&|[|][|])(.+)", REG_EXTENDED);//regex for the logical command..
     regcomp(&pipe_preg, "(.+)[|](.+)", REG_EXTENDED);//regex for the pipe command..
     int status_dollar = 0; //this will hold the status of last command executed in $ variable..
-    char command[MAX_CMD_LEN];//buffer for holding the command
-
-    handle_command_generic("clear", 1, -1, -1); //this will cause the shell to clear the screen..
+    char *command;
+    char prompt[PATH_MAX];
+    rl_attempted_completion_function = custom_command_completion;
+    //handle_command_generic("clear", 1, -1, -1); //this will cause the shell to clear the screen..
     
     while(1)
     {
-        memset(command, '\0', MAX_CMD_LEN);
         #ifndef DEV
         printf("(%s@%s)-[%s]-$ ", getenv("LOGNAME"), getenv("NAME"), strcmp(getenv("HOME"), getenv("HOME"))?"~":getenv("PWD"));  
         #endif
         #ifdef DEV
-        printf("\n(%s@%s)-$ ", getenv("LOGNAME"), getenv("NAME"));
+        int n = sprintf(prompt,"(%s@%s)-$ ", getenv("LOGNAME"), getenv("NAME"));
+        prompt[n] = '\0';
         #endif
-        fgets(command, MAX_CMD_LEN, stdin);
-        clean_command(command);
-    
-        //status_dollar = handle_logical_command(strtok(command, "\n"), &logic_preg, &pipe_preg); //checking for the control commands if exist...
+        command = readline(prompt);
+        add_history(command);
+        // clean_command(command);
+        status_dollar = handle_logical_command(strtok(command, "\n"), &logic_preg, &pipe_preg); //checking for the control commands if exist...
         if(logical_command)
         {
             logical_command = 0;
+            free(command);
             continue;
         }
         status_dollar = handle_command_pipes(command, &pipe_preg);
+        free(command);
     }
 
 	return 0;
@@ -96,7 +103,6 @@ int handle_logical_command(char *command, regex_t *logic_preg, regex_t *pipe_pre
     
     int deep_well = regexec(logic_preg, left, CONTROL_COMMAND_GROUP, pmatch, 0); //checking weather we have to break down further or not...
     int last_status = handle_logical_command(left, logic_preg, pipe_preg);
-    
     if(deep_well != 0)//if we don't have to break the command further will stop and handle the both left and right side and return..
     {
         switch(op) 
@@ -104,8 +110,8 @@ int handle_logical_command(char *command, regex_t *logic_preg, regex_t *pipe_pre
             case 1:
                 {
                     int right_status = 0;
-                    int status = handle_command_pipes(left, pipe_preg);  
-                    if(WIFEXITED(status) && status >> 8 != COM_NOT_EXIST) //if the left child exited normally then go fo rthe right thus satisfying the && logical Operator..
+                    int status = handle_command_pipes(left, pipe_preg);
+                    if(WIFEXITED(status) && status >> 8 != COM_NOT_EXIST) //if the left child exited normally then go for the right thus satisfying the && logical Operator..
                     {
                         right_status = handle_command_pipes(right, pipe_preg);
                         if(WIFEXITED(right_status))
@@ -245,8 +251,14 @@ int handle_command_pipes(char *command, regex_t *pipe_preg)
     
     for(int idx = 0; idx < count_pipes; idx++) {wait(NULL);}
     
+    for(int idx = 0; idx < count_pipes; idx++)
+    {
+        free(fd_pipes[idx]);
+    }
+    free(fd_pipes);
+
     if(WIFEXITED(last_status))
-        return 1;
+        return last_status;
     
     return 0;   
 }
@@ -258,7 +270,7 @@ int handle_command_generic(char *command, int wait_flag, int in, int out)
     argv[1] = NULL;
     
     int rv = spawn_child(command, argv, wait_flag, in, out);
-
+    
     if(in != -1) close(in);
     if(out != -1) close(out);
     
@@ -273,4 +285,26 @@ void create_pipe(int **fd_pipes, int idx)
             perror("pipe");
             exit(EXIT_FAILURE);
     }
+}
+
+char **custom_command_completion(const char *text, int start, int end)
+{
+    if(command_flag)
+    {
+        text[start];
+        char ad[50];
+        sprintf(ad, "/usr/bin/%s", text);
+        char **arry = rl_completion_matches(ad, rl_filename_completion_function);
+        for(int idx = 0; arry[idx] != NULL; idx++) 
+        {
+            char *new = (char *)malloc(sizeof(char) * 100);
+            sprintf(new,"%s\0", arry[idx] + 9);
+            free(arry[idx]);
+            arry[idx] = new;
+        }
+        command_flag = 0;
+        return arry;
+    }
+    command_flag = 1;
+    return rl_completion_matches(text, rl_filename_completion_function);
 }
