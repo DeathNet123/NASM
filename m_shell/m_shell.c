@@ -16,7 +16,7 @@
 
 extern char **environ;
 int logical_command = 0;
-int command_flag = 1;
+int command_flag = 0;
 
 #define DEV
 
@@ -30,6 +30,7 @@ int handle_command_pipes(char *command, regex_t *pipe_preg);//function to handle
 int handle_command_generic(char *command, int wait_flag, int in, int out);//the is will be called to basic unit command..
 void create_pipe(int **fd_pipes, int idx);//function used by handle_command_pipe to make commands 
 char **custom_command_completion(const char *text, int start, int end); //registed for the command completion function
+void set_args(char *command, char **argv); //this will set the array of args in the handle command generic function..
 
 int main(int argc, char **argv)
 {
@@ -47,14 +48,16 @@ int main(int argc, char **argv)
     while(1)
     {
         #ifndef DEV
-        printf("(%s@%s)-[%s]-$ ", getenv("LOGNAME"), getenv("NAME"), strcmp(getenv("HOME"), getenv("HOME"))?"~":getenv("PWD"));  
+        sprintf(prompt, "\n(%s@%s)-[%s]-$ ", getenv("LOGNAME"), getenv("NAME"), strcmp(getenv("HOME"), getenv("HOME"))?"~":getenv("PWD"));  
+        prompt[n] = '\0';
         #endif
         #ifdef DEV
-        int n = sprintf(prompt,"(%s@%s)-$ ", getenv("LOGNAME"), getenv("NAME"));
+        int n = sprintf(prompt,"\n(%s@%s)-$ ", getenv("LOGNAME"), getenv("NAME"));
         prompt[n] = '\0';
         #endif
         command = readline(prompt);
         add_history(command);
+        char *argv[ARG_NUM];
         // clean_command(command);
         status_dollar = handle_logical_command(strtok(command, "\n"), &logic_preg, &pipe_preg); //checking for the control commands if exist...
         if(logical_command)
@@ -268,9 +271,8 @@ int handle_command_generic(char *command, int wait_flag, int in, int out)
     char *argv[ARG_NUM];
     argv[0] = command;
     argv[1] = NULL;
-    
+    set_args(command, argv);
     int rv = spawn_child(command, argv, wait_flag, in, out);
-    
     if(in != -1) close(in);
     if(out != -1) close(out);
     
@@ -291,20 +293,52 @@ char **custom_command_completion(const char *text, int start, int end)
 {
     if(command_flag)
     {
+        char buffer[PATH_MAX];
+        command_flag = 0;
         text[start];
         char ad[50];
         sprintf(ad, "/usr/bin/%s", text);
-        char **arry = rl_completion_matches(ad, rl_filename_completion_function);
-        for(int idx = 0; arry[idx] != NULL; idx++) 
-        {
-            char *new = (char *)malloc(sizeof(char) * 100);
-            sprintf(new,"%s\0", arry[idx] + 9);
-            free(arry[idx]);
-            arry[idx] = new;
-        }
-        command_flag = 0;
-        return arry;
+        // char **arry = 
+        getcwd(buffer, PATH_MAX);
+        chdir("/usr/bin");
+        char **array  = rl_completion_matches(text, rl_filename_completion_function);
+        chdir(buffer);
+        return array;
     }
     command_flag = 1;
     return rl_completion_matches(text, rl_filename_completion_function);
+}
+
+void set_args(char *command, char **argv)
+{
+    int flag_args = 0;
+    int count = strlen(command);
+    for(int idx = 0; idx <= count; idx++)
+    {
+        if(command[idx] == ' ')
+        {
+            flag_args++;
+        }
+
+    }
+    if(flag_args == 0)
+    {
+        return;
+
+    }
+    else
+    {
+        int idx = 0;
+        char *menace;
+        menace = strtok(command, " ");
+        while(menace != NULL)
+        {
+            argv[idx] = menace;
+            menace = strtok(NULL, " ");
+            idx++;
+        }
+        argv[idx] = NULL;   
+    }
+   
+    return ;
 }
