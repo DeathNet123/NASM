@@ -2,7 +2,6 @@
 #include<signal.h>
 #include<stdlib.h>
 #include<string.h>
-#include<stdbool.h>
 #include<fcntl.h>
 #include<readline/readline.h>
 #include<readline/history.h>
@@ -31,6 +30,7 @@ int handle_command_generic(char *command, int wait_flag, int in, int out);//the 
 void create_pipe(int **fd_pipes, int idx);//function used by handle_command_pipe to make commands 
 char **custom_command_completion(const char *text, int start, int end); //registed for the command completion function
 void set_args(char *command, char **argv); //this will set the array of args in the handle command generic function..
+void perform_io_redirection(int *in , int *out);//function to perform_io_redirection    
 
 int main(int argc, char **argv)
 {
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
         command = readline(prompt);
         add_history(command);
         char *argv[ARG_NUM];
-        // clean_command(command);
+        clean_command(command);
         status_dollar = handle_logical_command(strtok(command, "\n"), &logic_preg, &pipe_preg); //checking for the control commands if exist...
         if(logical_command)
         {
@@ -176,7 +176,7 @@ int spawn_child(char *file, char **argv, int wait_flag, int in, int out)
         if(rv != 0)
         {
             printf("No such command found: %s\n", file);
-            return COMMAND_NOT_FOUND;
+            exit(COMMAND_NOT_FOUND);
         }
     }
     else
@@ -187,29 +187,31 @@ int spawn_child(char *file, char **argv, int wait_flag, int in, int out)
             wait(&status);
             return status;
         }
-        return 1;
+        return -1;
     }
 }
 
 void clean_command(char *command) // the purpose of this function is to remove the characters such as \n and \r etc and extra white spaces
 {
-    char cmd[1024];
+    char cmd[strlen(command) + 1];
     int count = 0;
-    
-    memset(cmd, '\0', 1024);
-    strcpy(cmd, command);
-    memset(command, '\0', 1024);
+    memset(cmd, '\0', strlen(command));
+    strncpy(cmd, command, strlen(command));
+    memset(command, '\0', strlen(command));
     char prev = cmd[0];
     
-    for(int idx = 0; idx < 1024; idx++)
+    for(int idx = 0; idx < strlen(cmd); idx++)
     {
-        if(cmd[idx] == '~'||cmd[idx] == ' ' ||(cmd[idx] >= 'a' && cmd[idx] <= 'z') || (cmd[idx] >= 'A' && cmd[idx] == 'Z') || (cmd[idx] >= '0' && cmd[idx] <= '9') || cmd[idx] == '-' || cmd[idx] == '&' || cmd[idx] == '|') 
+        if(cmd[idx] == '.' ||cmd[idx] == '~'||cmd[idx] == ' ' ||(cmd[idx] >= 'a' && cmd[idx] <= 'z') || (cmd[idx] >= 'A' && cmd[idx] == 'Z') || (cmd[idx] >= '0' && cmd[idx] <= '9') || cmd[idx] == '-' || cmd[idx] == '&' || cmd[idx] == '|') 
         {
             if(prev == ' ' && cmd[idx] == ' ') continue;
+            else if((prev == '|' || prev == '&') && cmd[idx] == ' ') continue;
+            else if(cmd[idx] == ' ' && (cmd[idx + 1] == '|' | cmd[idx + 1] == '&')) continue;
             command[count++] = cmd[idx];
             prev = cmd[idx];
         }
     }
+    printf("%s\n", command);
 }
 
 int handle_command_pipes(char *command, regex_t *pipe_preg)
@@ -218,7 +220,8 @@ int handle_command_pipes(char *command, regex_t *pipe_preg)
     int count_pipes = 0; //this will decide how many pipes are needed to be created..
     int **fd_pipes;//will hold the file descriptor for each pipes
     char *cmd = NULL;
-
+    int last_status;
+    int count_childs = 0;
     int test = regexec(pipe_preg, command, PIPE_CMD_GROUP, pmatch, 0);
     if(test)
     {
@@ -240,19 +243,20 @@ int handle_command_pipes(char *command, regex_t *pipe_preg)
     //sending the segments to command handler...
     create_pipe(fd_pipes, 0);
     strtok(command, "|");
-    handle_command_generic(command, 0, -1, fd_pipes[0][1]);
+    last_status =  handle_command_generic(command, 0, -1, fd_pipes[0][1]);
     
     for(int idx = 1; idx < count_pipes; idx++)
     {
         cmd = strtok(NULL, "|");
-        printf("%s", cmd);
         create_pipe(fd_pipes, idx);
-        handle_command_generic(cmd, 0, fd_pipes[idx - 1][0], fd_pipes[idx][1]);
+        last_status = handle_command_generic(cmd, 0, fd_pipes[idx - 1][0], fd_pipes[idx][1]);
     }
     cmd = strtok(NULL, "|");
-    int last_status = handle_command_generic(cmd, 1, fd_pipes[count_pipes - 1][0], -1);
-    
-    for(int idx = 0; idx < count_pipes; idx++) {wait(NULL);}
+    last_status = handle_command_generic(cmd, 1, fd_pipes[count_pipes - 1][0], -1);
+    for(int idx = 0; idx < count_pipes + 1; idx++) 
+    {
+        wait(NULL);
+    }
     
     for(int idx = 0; idx < count_pipes; idx++)
     {
@@ -260,10 +264,9 @@ int handle_command_pipes(char *command, regex_t *pipe_preg)
     }
     free(fd_pipes);
 
-    if(WIFEXITED(last_status))
-        return last_status;
-    
-    return 0;   
+    // if(WIFEXITED(last_status))
+    //     return last_status;
+    return last_status;   
 }
 
 int handle_command_generic(char *command, int wait_flag, int in, int out)
@@ -272,7 +275,8 @@ int handle_command_generic(char *command, int wait_flag, int in, int out)
     argv[0] = command;
     argv[1] = NULL;
     set_args(command, argv);
-    int rv = spawn_child(command, argv, wait_flag, in, out);
+    // perform_io_redirection(&in, &out);
+    int rv = spawn_child(argv[0], argv, wait_flag, in, out);
     if(in != -1) close(in);
     if(out != -1) close(out);
     
@@ -330,15 +334,22 @@ void set_args(char *command, char **argv)
     {
         int idx = 0;
         char *menace;
-        menace = strtok(command, " ");
+        menace = strsep(&command, " ");
         while(menace != NULL)
         {
             argv[idx] = menace;
-            menace = strtok(NULL, " ");
+            menace = strsep(&command, " ");
             idx++;
         }
-        argv[idx] = NULL;   
+        argv[idx] = NULL;  
+        // for(int idx = 0; argv[idx] != NULL; idx++)
+        //     printf("%s\n", argv[idx]);
     }
    
     return ;
+}
+
+void perform_io_redirection(int *in, int *out)
+{
+
 }
