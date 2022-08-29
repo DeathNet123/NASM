@@ -30,7 +30,19 @@ int handle_command_generic(char *command, int wait_flag, int in, int out);//the 
 void create_pipe(int **fd_pipes, int idx);//function used by handle_command_pipe to make commands 
 char **custom_command_completion(const char *text, int start, int end); //registed for the command completion function
 void set_args(char *command, char **argv); //this will set the array of args in the handle command generic function..
-void perform_io_redirection(int *in , int *out);//function to perform_io_redirection    
+int perform_io_redirection(int *in , int *out, char **argv);//function to perform_io_redirection    
+void slide(char **argv); //it will remove the holes in the argv..
+void rotate(char **argv, int idx);
+void print(char *argv[])
+{
+    int idx = 0;
+    while(argv[idx] != NULL)
+    {
+        printf(":%s\n", argv[idx]);
+        idx++;
+
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -40,13 +52,13 @@ int main(int argc, char **argv)
     regcomp(&logic_preg, "(.+)(&&|[|][|])(.+)", REG_EXTENDED);//regex for the logical command..
     regcomp(&pipe_preg, "(.+)[|](.+)", REG_EXTENDED);//regex for the pipe command..
     int status_dollar = 0; //this will hold the status of last command executed in $ variable..
-    char *command;
     char prompt[PATH_MAX];
     rl_attempted_completion_function = custom_command_completion;
     //handle_command_generic("clear", 1, -1, -1); //this will cause the shell to clear the screen..
     
     while(1)
     {
+        char *command = (char *)malloc(MAX_CMD_LEN  * sizeof(char));
         #ifndef DEV
         sprintf(prompt, "\n(%s@%s)-[%s]-$ ", getenv("LOGNAME"), getenv("NAME"), strcmp(getenv("HOME"), getenv("HOME"))?"~":getenv("PWD"));  
         prompt[n] = '\0';
@@ -57,7 +69,6 @@ int main(int argc, char **argv)
         #endif
         command = readline(prompt);
         add_history(command);
-        char *argv[ARG_NUM];
         clean_command(command);
         status_dollar = handle_logical_command(strtok(command, "\n"), &logic_preg, &pipe_preg); //checking for the control commands if exist...
         if(logical_command)
@@ -168,7 +179,11 @@ int spawn_child(char *file, char **argv, int wait_flag, int in, int out)
     int cpid = fork();
     if(cpid == 0)
     {
-        
+        int status = perform_io_redirection(&in, &out, argv);
+        if(status == FILE_NOT_FOUND)
+        {
+            exit(FILE_NOT_FOUND);
+        }
         if(in != - 1) dup2(in, 0);
         if(out != - 1) dup2(out, 1);
 
@@ -193,20 +208,39 @@ int spawn_child(char *file, char **argv, int wait_flag, int in, int out)
 
 void clean_command(char *command) // the purpose of this function is to remove the characters such as \n and \r etc and extra white spaces
 {
-    char cmd[strlen(command) + 1];
+    char cmd[MAX_CMD_LEN];
     int count = 0;
-    memset(cmd, '\0', strlen(command));
-    strncpy(cmd, command, strlen(command));
+    int switch_flag;
+    memset(cmd, '\0', MAX_CMD_LEN);
+    strncpy(cmd, command, MAX_CMD_LEN);
     memset(command, '\0', strlen(command));
     char prev = cmd[0];
     
-    for(int idx = 0; idx < strlen(cmd); idx++)
+    for(int idx = 0; cmd[idx] != '\0'; idx++)
     {
-        if(cmd[idx] == '.' ||cmd[idx] == '~'||cmd[idx] == ' ' ||(cmd[idx] >= 'a' && cmd[idx] <= 'z') || (cmd[idx] >= 'A' && cmd[idx] == 'Z') || (cmd[idx] >= '0' && cmd[idx] <= '9') || cmd[idx] == '-' || cmd[idx] == '&' || cmd[idx] == '|') 
+        if(cmd[idx] == '-')
+            switch_flag = 1;
+        else if(cmd[idx] == ' ')
+            switch_flag = 0;
+        if(cmd[idx] >= ' ' && cmd[idx] <= '~') 
         {
-            if(prev == ' ' && cmd[idx] == ' ') continue;
+            if((cmd[idx] == '>' || cmd[idx] == '<') && cmd[idx + 1] != ' ')
+            {
+                command[count++] = cmd[idx];
+                command[count++] = ' ';
+                prev = ' ';
+                continue; 
+            }
+            else if(prev == ' ' && cmd[idx] == ' ') continue;
             else if((prev == '|' || prev == '&') && cmd[idx] == ' ') continue;
             else if(cmd[idx] == ' ' && (cmd[idx + 1] == '|' | cmd[idx + 1] == '&')) continue;
+            else if((cmd[idx] >= '0' && cmd[idx] <= '9') && (switch_flag == 0) && cmd[idx + 1] != ' ') 
+            {
+                command[count++] = cmd[idx];
+                command[count++] = ' ';
+                prev = ' ';
+                continue;
+            }
             command[count++] = cmd[idx];
             prev = cmd[idx];
         }
@@ -275,7 +309,6 @@ int handle_command_generic(char *command, int wait_flag, int in, int out)
     argv[0] = command;
     argv[1] = NULL;
     set_args(command, argv);
-    // perform_io_redirection(&in, &out);
     int rv = spawn_child(argv[0], argv, wait_flag, in, out);
     if(in != -1) close(in);
     if(out != -1) close(out);
@@ -342,6 +375,7 @@ void set_args(char *command, char **argv)
             idx++;
         }
         argv[idx] = NULL;  
+        
         // for(int idx = 0; argv[idx] != NULL; idx++)
         //     printf("%s\n", argv[idx]);
     }
@@ -349,7 +383,63 @@ void set_args(char *command, char **argv)
     return ;
 }
 
-void perform_io_redirection(int *in, int *out)
+int perform_io_redirection(int *in, int *out, char *argv[])
 {
+    for(int idx = 0; argv[idx] != NULL; idx++)
+    {
+        if(argv[idx][0] == '<')
+        {
+            argv[idx][0] = '^';
+            int rv = access(argv[idx + 1], F_OK | R_OK);
+            if(rv == 0)
+                *in = open(argv[idx + 1], O_RDONLY);
+            else
+            {
+                return FILE_NOT_FOUND;
+            }
+            argv[idx + 1]  = "^";
+            if(argv[idx -1][0] >= '0' && argv[idx - 1][0] <= '9')
+                argv[idx - 1][0] = '^';
+            slide(argv);
+        }
+        else if(argv[idx][0] == '>')
+        {
+            argv[idx][0] = '^';
+            int rv = access(argv[idx + 1], F_OK | W_OK);
+            if(rv == 0)
+                *out = open(argv[idx + 1], O_WRONLY);
+            else
+            {
+                return FILE_NOT_FOUND;
+            }
+            argv[idx + 1]  = "^";
+            if(argv[idx -1][0] >= '0' && argv[idx - 1][0] <= '9')
+                argv[idx - 1][0] = '^';
+            slide(argv);
+
+        }
+    }
+    return 1;
+}
+void rotate(char **argv, int idx) 
+{
+    int kdx = idx;
+    while(argv[kdx] != NULL)
+    {
+        argv[kdx] = argv[kdx + 1];
+        kdx++;
+    }
+}
+void slide(char **argv)
+{
+    int idx;
+    for(idx = 0; argv[idx] != NULL; idx++)
+    {
+        if(argv[idx][0] == '^')
+        {
+            rotate(argv, idx);
+        }
+    }
+    argv[idx - 2] = NULL;
 
 }

@@ -10,4 +10,5 @@
 #define COMMAND_NOT_FOUND 32512
 #define COM_NOT_EXIST 127
 #define PIPE_CMD_GROUP 3
+#define FILE_NOT_FOUND -56565
 #endif
