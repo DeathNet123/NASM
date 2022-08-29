@@ -17,7 +17,7 @@ int main(void)
         if(value != NULL)
             printf("%s\n", value);
         free(buffer);
-        
+        printf("%d", strlen("12"));   
     }
     return 0;
 }

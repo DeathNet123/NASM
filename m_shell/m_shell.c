@@ -33,8 +33,10 @@ void set_args(char *command, char **argv); //this will set the array of args in 
 int perform_io_redirection(int *in , int *out, char **argv);//function to perform_io_redirection    
 void slide(char **argv); //it will remove the holes in the argv..
 void rotate(char **argv, int idx); //it will rotate the argv array..
-void parse_variables(char **argv); //it will parse the argv array and replace the variables with the values if any exist..
-void fixed_args(char **argv);
+int parse_variables(char *buffer); //it will parse the argv array and replace the variables with the values if any exist..
+void rotate_command(char *buff, int idx);
+void slide_command(char *buff);
+void make_space(char *buff, int count, char *loc);
 
 int main(int argc, char **argv)
 {
@@ -62,6 +64,7 @@ int main(int argc, char **argv)
         command = readline(prompt);
         add_history(command);
         clean_command(command);
+        // parse_variables(command);
         status_dollar = handle_logical_command(strtok(command, "\n"), &logic_preg, &pipe_preg); //checking for the control commands if exist...
         if(logical_command)
         {
@@ -297,11 +300,16 @@ int handle_command_pipes(char *command, regex_t *pipe_preg)
 
 int handle_command_generic(char *command, int wait_flag, int in, int out)
 {
+    int v = parse_variables(command);
+    if(v == VARIABLE_NOT_FOUND)
+    {
+        printf("variable not found");
+        return EXIT_FAILURE;
+    }
     char *argv[ARG_NUM];
     argv[0] = command;
     argv[1] = NULL;
     set_args(command, argv);
-    parse_variables(argv);
     int rv = spawn_child(argv[0], argv, wait_flag, in, out);
     if(in != -1) close(in);
     if(out != -1) close(out);
@@ -433,33 +441,65 @@ void slide(char **argv)
         if(argv[idx][0] == '^')
         {
             rotate(argv, idx);
+            idx--;
         }
     }
-    argv[idx - 2] = NULL;
-
 }
 
-void parse_variables(char **argv)
+void rotate_command(char *buff, int idx) 
 {
-    for(int idx = 0; argv[idx] != NULL; idx++)
+    int kdx = idx;
+    while(buff[kdx] != '\0')
     {
-        if(argv[idx][0] == '$')
-        {
-            char *value = getenv(argvs[idx] + 1);
-            if(value != NULL)
-            {
-                argv[idx] = value;
-            }
-            else
-            {
-                argv[idx] = "";
+        buff[kdx] = buff[kdx + 1];
+        kdx++;
+    }
+}
 
-            }
+void slide_command(char *buff)
+{
+    int idx;
+    for(idx = 0; buff[idx] != '\0'; idx++)
+    {
+        if(buff[idx] == '^')
+        {
+            rotate_command(buff, idx);
+            idx--;
         }
     }
 }
 
-void fixed_args(char **argv)
+void make_space(char *buff, int count, char *loc)
 {
-    
+    int len = strlen(buff);
+    for(int idx = len + 1; &buff[idx] >= loc; idx--)
+    {
+        buff[idx + count] = buff[idx];
+    }
+}
+
+int parse_variables(char *buffer)
+{
+    while(1)
+    {
+        char hold[VARIABLE_LEN];
+        char *loc = strstr(buffer, "$");
+        if(loc == NULL)
+            break;
+        for(int idx = 0; loc[idx] != ' ' && loc[idx] != '\0'; idx++)
+        {
+            hold[idx] = loc[idx];
+            loc[idx] = '^';
+        }
+        slide_command(buffer);
+        char *value = getenv(hold + 1);
+        if(value == NULL)
+            return VARIABLE_NOT_FOUND;
+        make_space(buffer, strlen(value), loc); 
+        //I know i could have used the strncpy but it is what it is i want it like this don't be smartass okay :)
+        for(int idx = 0; idx < strlen(value); idx++)
+        {
+            loc[idx] = value[idx];
+        }
+    }
 }

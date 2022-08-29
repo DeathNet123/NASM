@@ -1,2 +1,15 @@
--rw-r--r-- 1 arslan arslan 516 Aug 28 18:15 file.c
--rw-r--r-- 1 arslan arslan   0 Aug 29 13:08 out
+total 56
+drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Desktop
+drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Documents
+drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Downloads
+drwxr-xr-x  3 arslan arslan 4096 Jul 17 05:54 gdb-peda-pwndbg-gef
+drwxr-xr-x  7 arslan arslan 4096 Jul 17 05:53 gef
+drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Music
+drwxr-xr-x  4 arslan arslan 4096 Jul 17 05:53 peda
+drwxr-xr-x  6 arslan arslan 4096 Jul 17 05:53 peda-arm
+drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Pictures
+drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Public
+drwxr-xr-x 10 arslan arslan 4096 Jul 17 05:53 pwndbg
+drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Templates
+drwxr-xr-t  2 arslan arslan 4096 Jul 28 16:35 thinclient_drives
+drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Videos
