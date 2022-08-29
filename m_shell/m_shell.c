@@ -32,17 +32,9 @@ char **custom_command_completion(const char *text, int start, int end); //regist
 void set_args(char *command, char **argv); //this will set the array of args in the handle command generic function..
 int perform_io_redirection(int *in , int *out, char **argv);//function to perform_io_redirection    
 void slide(char **argv); //it will remove the holes in the argv..
-void rotate(char **argv, int idx);
-void print(char *argv[])
-{
-    int idx = 0;
-    while(argv[idx] != NULL)
-    {
-        printf(":%s\n", argv[idx]);
-        idx++;
-
-    }
-}
+void rotate(char **argv, int idx); //it will rotate the argv array..
+void parse_variables(char **argv); //it will parse the argv array and replace the variables with the values if any exist..
+void fixed_args(char **argv);
 
 int main(int argc, char **argv)
 {
@@ -309,6 +301,7 @@ int handle_command_generic(char *command, int wait_flag, int in, int out)
     argv[0] = command;
     argv[1] = NULL;
     set_args(command, argv);
+    parse_variables(argv);
     int rv = spawn_child(argv[0], argv, wait_flag, in, out);
     if(in != -1) close(in);
     if(out != -1) close(out);
@@ -421,6 +414,7 @@ int perform_io_redirection(int *in, int *out, char *argv[])
     }
     return 1;
 }
+
 void rotate(char **argv, int idx) 
 {
     int kdx = idx;
@@ -430,6 +424,7 @@ void rotate(char **argv, int idx)
         kdx++;
     }
 }
+
 void slide(char **argv)
 {
     int idx;
@@ -442,4 +437,29 @@ void slide(char **argv)
     }
     argv[idx - 2] = NULL;
 
+}
+
+void parse_variables(char **argv)
+{
+    for(int idx = 0; argv[idx] != NULL; idx++)
+    {
+        if(argv[idx][0] == '$')
+        {
+            char *value = getenv(argvs[idx] + 1);
+            if(value != NULL)
+            {
+                argv[idx] = value;
+            }
+            else
+            {
+                argv[idx] = "";
+
+            }
+        }
+    }
+}
+
+void fixed_args(char **argv)
+{
+    
 }

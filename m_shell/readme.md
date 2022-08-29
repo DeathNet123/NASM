@@ -19,8 +19,10 @@ This can be done by using the following regex:<br>
 
 ### Handling Commands with Pipes
 
-<p>
-Once the function <code>int handle_command_pipes(char *command, regex_t *pipe_preg)</code> get's called it will check weather the command has pipes or not this can be done by using another regex :<br>
-<code>(.+)\|(.+)</code><br>
+`<p>`
+Once the function `<code>`int handle_command_pipes(char *command, regex_t *pipe_preg)`</code>` get's called it will check weather the command has pipes or not this can be done by using another regex :`<br>`
+`<code>`(.+)\|(.+)`</code><br>`
 if the regex did not find any match we will return to main function if there is any pipe to handle then this function will handle them in sequence and pass control to generic command handler function once pipe function will be done processing the command it will return it's to it's parent calling function.
 </p>
+
+### Handling the Generic Commands

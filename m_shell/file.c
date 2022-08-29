@@ -12,13 +12,10 @@ int main(void)
        char *buffer;
         buffer = readline(">");
         add_history(buffer);
-        buffer[5] = '\0';
-        while(1)
-        {
-            char *meance = strsep(&buffer, " ");
-            if(meance == NULL) break;
-            printf("%s\n", meance);
-        } 
+        if(buffer[0] == '$');
+        char *value = getenv(buffer + 1);
+        if(value != NULL)
+            printf("%s\n", value);
         free(buffer);
         
     }
