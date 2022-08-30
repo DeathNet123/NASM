@@ -12,12 +12,18 @@ int main(void)
        char *buffer;
         buffer = readline(">");
         add_history(buffer);
-        if(buffer[0] == '$');
-        char *value = getenv(buffer + 1);
-        if(value != NULL)
-            printf("%s\n", value);
-        free(buffer);
-        printf("%d", strlen("12"));   
+        if(buffer[0] == '$')
+        {
+            char *value = getenv(buffer + 1);
+            if(value != NULL)
+                printf("%s\n", value);
+        }
+        else
+        {
+            int rv = putenv(buffer);
+            printf("%d", rv);
+        }
+        free(buffer);   
     }
     return 0;
 }

@@ -1,15 +1,18 @@
-total 56
-drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Desktop
-drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Documents
-drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Downloads
-drwxr-xr-x  3 arslan arslan 4096 Jul 17 05:54 gdb-peda-pwndbg-gef
-drwxr-xr-x  7 arslan arslan 4096 Jul 17 05:53 gef
-drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Music
-drwxr-xr-x  4 arslan arslan 4096 Jul 17 05:53 peda
-drwxr-xr-x  6 arslan arslan 4096 Jul 17 05:53 peda-arm
-drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Pictures
-drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Public
-drwxr-xr-x 10 arslan arslan 4096 Jul 17 05:53 pwndbg
-drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Templates
-drwxr-xr-t  2 arslan arslan 4096 Jul 28 16:35 thinclient_drives
-drwxr-xr-x  2 arslan arslan 4096 Jul 28 16:36 Videos
+#include<stdio.h>
+#include <stdlib.h>
+#include<unistd.h>
+#include<wait.h>
+#include<readline/readline.h>
+#include<readline/history.h>
+
+int main(void)
+{
+    while(1)
+    {
+       if(WIFEXITED(0))
+       {
+        printf(" i am here\n");
+       } 
+    }
+    return 0;
+}

@@ -37,6 +37,7 @@ int parse_variables(char *buffer); //it will parse the argv array and replace th
 void rotate_command(char *buff, int idx);
 void slide_command(char *buff);
 void make_space(char *buff, int count, char *loc);
+int set_variable(char *command); //for parsing the command which will be setting the VAR
 
 int main(int argc, char **argv)
 {
@@ -120,7 +121,7 @@ int handle_logical_command(char *command, regex_t *logic_preg, regex_t *pipe_pre
                 {
                     int right_status = 0;
                     int status = handle_command_pipes(left, pipe_preg);
-                    if(WIFEXITED(status) && status >> 8 != COM_NOT_EXIST) //if the left child exited normally then go for the right thus satisfying the && logical Operator..
+                    if(WIFEXITED(status) && status >> 8 == 0) //if the left child exited normally then go for the right thus satisfying the && logical Operator..
                     {
                         right_status = handle_command_pipes(right, pipe_preg);
                         if(WIFEXITED(right_status))
@@ -177,7 +178,8 @@ int spawn_child(char *file, char **argv, int wait_flag, int in, int out)
         int status = perform_io_redirection(&in, &out, argv);
         if(status == FILE_NOT_FOUND)
         {
-            exit(FILE_NOT_FOUND);
+            printf("file not found\n");
+            raise(2);
         }
         if(in != - 1) dup2(in, 0);
         if(out != - 1) dup2(out, 1);
@@ -186,7 +188,7 @@ int spawn_child(char *file, char **argv, int wait_flag, int in, int out)
         if(rv != 0)
         {
             printf("No such command found: %s\n", file);
-            exit(COMMAND_NOT_FOUND);
+            raise(2);
         }
     }
     else
@@ -228,8 +230,8 @@ void clean_command(char *command) // the purpose of this function is to remove t
             }
             else if(prev == ' ' && cmd[idx] == ' ') continue;
             else if((prev == '|' || prev == '&') && cmd[idx] == ' ') continue;
-            else if(cmd[idx] == ' ' && (cmd[idx + 1] == '|' | cmd[idx + 1] == '&')) continue;
-            else if((cmd[idx] >= '0' && cmd[idx] <= '9') && (switch_flag == 0) && cmd[idx + 1] != ' ') 
+            else if(cmd[idx] == ' ' && (cmd[idx + 1] == '|' || cmd[idx + 1] == '&' || cmd[idx + 1] == '\0' || cmd[idx + 1] == '\n')) continue;
+            else if((cmd[idx] >= '0' && cmd[idx] <= '9') && (switch_flag == 0) && (cmd[idx + 1] != ' ') && (cmd[idx + 2] == '>' || cmd[idx + 2] == '<')) 
             {
                 command[count++] = cmd[idx];
                 command[count++] = ' ';
@@ -240,7 +242,6 @@ void clean_command(char *command) // the purpose of this function is to remove t
             prev = cmd[idx];
         }
     }
-    printf("%s\n", command);
 }
 
 int handle_command_pipes(char *command, regex_t *pipe_preg)
@@ -309,11 +310,13 @@ int handle_command_generic(char *command, int wait_flag, int in, int out)
     char *argv[ARG_NUM];
     argv[0] = command;
     argv[1] = NULL;
+    int value = set_variable(command);
+    if(value == 0)
+        return value;
     set_args(command, argv);
     int rv = spawn_child(argv[0], argv, wait_flag, in, out);
     if(in != -1) close(in);
     if(out != -1) close(out);
-    
     return rv;
 }
 
@@ -402,6 +405,7 @@ int perform_io_redirection(int *in, int *out, char *argv[])
             if(argv[idx -1][0] >= '0' && argv[idx - 1][0] <= '9')
                 argv[idx - 1][0] = '^';
             slide(argv);
+            idx = idx - 3;
         }
         else if(argv[idx][0] == '>')
         {
@@ -417,7 +421,7 @@ int perform_io_redirection(int *in, int *out, char *argv[])
             if(argv[idx -1][0] >= '0' && argv[idx - 1][0] <= '9')
                 argv[idx - 1][0] = '^';
             slide(argv);
-
+            idx = idx - 3;
         }
     }
     return 1;
@@ -502,4 +506,22 @@ int parse_variables(char *buffer)
             loc[idx] = value[idx];
         }
     }
+}
+
+int set_variable(char *command)
+{
+    regex_t var;
+    regcomp(&var, "(.+)=(.+)", REG_EXTENDED);//regex for the variable
+    regmatch_t pmatch[3];
+    int test = regexec(&var, command, 3, pmatch, 0);
+    if(test) //check if command contains the variable setting expression or not..
+    {
+        return -99;
+    }
+    else if(pmatch[0].rm_eo - pmatch[0].rm_so != strlen(command))
+    {
+        return -99;
+    }
+    char *name = strsep(&command, "=");
+    return setenv(name, command, 1);
 }
