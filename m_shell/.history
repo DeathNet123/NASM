@@ -1,53 +1,85 @@
+exit
 ls -l
-ls -l
-ls -l
-date
-ls -l
-clear
-id
-uname -r
-pwd
-pwd
-
+exit
 clear
 clear
-clear
-case
-clear
-man strcmp
+exit
+!!
+!1
 clear
 exit
 ls -l
-ls -l
-clear
-ls -l
-clear
 exit
 exit
-clear
+history
 exit
-clear
 ls -l
 exit
 exit
-./a.out 
+hisotry
 exit
+CASE=cat out
+echo $CASE
+echo $CASE
 clear
-ls -l
+CASE=10
 clear
-man chdir
+echo $CASE
 clear
-ls -l
-pwd
-clear
-cd ..
-clear
-ls -l
-pwd
-clear
-exit
 env
 clear
+CASE=cat out
+env
+clear
+echo $CASE
+exit
+exit
+CASE=10
+echo $CASE
+clear
+echo $CASE
+exit
+CASE=10
+clear
+echo $CASE
+exit
+COM=10
+echo $COM
+clear
 ls -l
+COM=cat file.c
+clear
+env
+clear
+$COM
+clear
+exit
+history
+!1
+ls -l
+hisotry
+history
+!60
+!60
+history
+!49
+!62
+!63
+!64
+clear
+./a
+exit
+ls -l
+history
+exit
+!4
+history
+!26
+history
+clear
+exit
+history
+!80
+!71
 clear
 exit

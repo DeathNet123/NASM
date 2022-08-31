@@ -45,10 +45,12 @@ void init_history(void);
 void re_add_history(char *command);
 void init_shell(void);
 int exit_m(char **argv);
+int history(char **argv);
+int parse_history(char *buffer);
 
 int main(int argc, char **argv)
 {
-    init_history();
+    read_history(".history");
     init_shell();
     //compile the control command regex
     regex_t logic_preg;
@@ -72,8 +74,8 @@ int main(int argc, char **argv)
         #endif
         command = readline(prompt);
         add_history(command);
-        re_add_history(command);
         clean_command(command);
+        parse_history(command);
         char *save = command;
         char *token = strsep(&command, ";");
         while(token != NULL)
@@ -506,6 +508,7 @@ int parse_variables(char *buffer)
     while(1)
     {
         char hold[VARIABLE_LEN];
+        memset(hold, '\0', VARIABLE_LEN);
         char *loc = strstr(buffer, "$");
         if(loc == NULL)
             break;
@@ -515,6 +518,7 @@ int parse_variables(char *buffer)
             loc[idx] = '^';
         }
         slide_command(buffer);
+        printf("%s\n", hold);
         char *value = getenv(hold + 1);
         if(value == NULL)
             return VARIABLE_NOT_FOUND;
@@ -568,6 +572,7 @@ void init_history(void)
 
 int exit_m(char **argv)
 {
+    write_history(".history");
     exit(0);
 }
 
@@ -578,11 +583,14 @@ int change_dir(char **argv)
 
 void init_shell(void)
 {
+    signal(SIGINT, SIG_IGN);
     commands_internal[0].file_name = "exit";
     commands_internal[0].fun = exit_m;
     commands_internal[1].file_name = "cd";
     commands_internal[1].fun = change_dir;
-    commands_internal[2].file_name = NULL;
+    commands_internal[2].file_name = "history";
+    commands_internal[2].fun = history;
+    commands_internal[3].file_name = NULL;
 }
 
 internal_command type_a(char * command)
@@ -602,4 +610,22 @@ internal_command type_a(char * command)
         idx++;
     }
     return rv;
+}
+
+int history(char **argv)
+{
+    HIST_ENTRY **hist = history_list();
+    for(int idx = 1; hist[idx] != NULL; idx++)
+    {
+        printf("%d %s\n", idx, hist[idx]->line);
+    } 
+}
+
+int parse_history(char *buffer)
+{
+    if(buffer[0] != '!')
+        return 0;
+    HIST_ENTRY **en = history_list();
+    int idx = atoi(buffer + 1);
+    sprintf(buffer, "%s", en[idx]->line);
 }
