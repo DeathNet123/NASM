@@ -5,25 +5,34 @@
 #include<readline/readline.h>
 #include<readline/history.h>
 
+void reaper(int signal)
+{
+    waitpid(-1, NULL, WCONTINUED);
+}
 int main(void)
 {
-    while(1)
+    signal(SIGCHLD, reaper);
+    int cp = fork();
+    if(cp == 0)
     {
-       char *buffer;
-        buffer = readline(">");
-        add_history(buffer);
-        if(buffer[0] == '$')
-        {
-            char *value = getenv(buffer + 1);
-            if(value != NULL)
-                printf("%s\n", value);
-        }
-        else
-        {
-            int rv = putenv(buffer);
-            printf("%d", rv);
-        }
-        free(buffer);   
+        char *argv[3];
+        argv[0] = "sleep";
+        argv[1] = "10";
+        argv[2] = NULL;
+        execvp(argv[0], argv);
     }
+    else
+    {
+        char *buffer;
+        kill(20, cp);
+        kill(18, cp);
+        while(1)
+        {
+            buffer = readline(">");
+            free(buffer);
+        }
+    }
+
+    for(int idx = 0; idx < 3)
     return 0;
 }

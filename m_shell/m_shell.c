@@ -16,6 +16,9 @@
 extern char **environ;
 int logical_command = 0;
 int command_flag = 0;
+int command_seperator = 0;
+int_cmd_node commands_internal[10]; //this is set as for now..
+
 
 #define DEV
 
@@ -38,9 +41,15 @@ void rotate_command(char *buff, int idx);
 void slide_command(char *buff);
 void make_space(char *buff, int count, char *loc);
 int set_variable(char *command); //for parsing the command which will be setting the VAR
+void init_history(void);
+void re_add_history(char *command);
+void init_shell(void);
+int exit_m(char **argv);
 
 int main(int argc, char **argv)
 {
+    init_history();
+    init_shell();
     //compile the control command regex
     regex_t logic_preg;
     regex_t pipe_preg;
@@ -50,7 +59,6 @@ int main(int argc, char **argv)
     char prompt[PATH_MAX];
     rl_attempted_completion_function = custom_command_completion;
     //handle_command_generic("clear", 1, -1, -1); //this will cause the shell to clear the screen..
-    
     while(1)
     {
         char *command = (char *)malloc(MAX_CMD_LEN  * sizeof(char));
@@ -64,19 +72,25 @@ int main(int argc, char **argv)
         #endif
         command = readline(prompt);
         add_history(command);
+        re_add_history(command);
         clean_command(command);
-        // parse_variables(command);
-        status_dollar = handle_logical_command(strtok(command, "\n"), &logic_preg, &pipe_preg); //checking for the control commands if exist...
-        if(logical_command)
+        char *save = command;
+        char *token = strsep(&command, ";");
+        while(token != NULL)
         {
-            logical_command = 0;
-            free(command);
-            continue;
+            
+            status_dollar = handle_logical_command(token, &logic_preg, &pipe_preg); //checking for the control commands if exist...
+            if(logical_command)
+            {
+                logical_command = 0;
+                token = strsep(&command, ";");
+                continue;
+            }
+            status_dollar = handle_command_pipes(token, &pipe_preg);
+            token = strsep(&command, ";");
         }
-        status_dollar = handle_command_pipes(command, &pipe_preg);
-        free(command);
+        free(save);
     }
-
 	return 0;
 }
 
@@ -231,7 +245,7 @@ void clean_command(char *command) // the purpose of this function is to remove t
             else if(prev == ' ' && cmd[idx] == ' ') continue;
             else if((prev == '|' || prev == '&') && cmd[idx] == ' ') continue;
             else if(cmd[idx] == ' ' && (cmd[idx + 1] == '|' || cmd[idx + 1] == '&' || cmd[idx + 1] == '\0' || cmd[idx + 1] == '\n')) continue;
-            else if((cmd[idx] >= '0' && cmd[idx] <= '9') && (switch_flag == 0) && (cmd[idx + 1] != ' ') && (cmd[idx + 2] == '>' || cmd[idx + 2] == '<')) 
+            else if((cmd[idx] >= '0' && cmd[idx] <= '9') && (switch_flag == 0) && (cmd[idx + 1] != ' ') && (cmd[idx + 1] == '>' || cmd[idx + 1] == '<')) 
             {
                 command[count++] = cmd[idx];
                 command[count++] = ' ';
@@ -311,9 +325,14 @@ int handle_command_generic(char *command, int wait_flag, int in, int out)
     argv[0] = command;
     argv[1] = NULL;
     int value = set_variable(command);
-    if(value == 0)
+    if(value != -99)
         return value;
     set_args(command, argv);
+    internal_command rv_c = type_a(argv[0]);
+    if(rv_c.is_true)
+    {
+        return rv_c.fun(argv);
+    }
     int rv = spawn_child(argv[0], argv, wait_flag, in, out);
     if(in != -1) close(in);
     if(out != -1) close(out);
@@ -522,6 +541,65 @@ int set_variable(char *command)
     {
         return -99;
     }
+    printf("Variable Set\n");
     char *name = strsep(&command, "=");
     return setenv(name, command, 1);
+}
+
+void re_add_history(char *command)
+{
+    FILE *m_shell_hist = fopen(".history", "a+");
+    fprintf(m_shell_hist, "%s\n", command);
+    fclose(m_shell_hist);
+}
+
+void init_history(void)
+{
+    FILE *m_shell_hist = fopen(".history", "r");
+    char command[MAX_CMD_LEN];
+    memset(command, '\0', MAX_CMD_LEN);
+    while(fgets(command, MAX_CMD_LEN, m_shell_hist))
+    {
+        add_history(command);
+        memset(command, '\0', MAX_CMD_LEN);
+    }
+    fclose(m_shell_hist);
+}
+
+int exit_m(char **argv)
+{
+    exit(0);
+}
+
+int change_dir(char **argv)
+{
+    return chdir(argv[1]);
+}
+
+void init_shell(void)
+{
+    commands_internal[0].file_name = "exit";
+    commands_internal[0].fun = exit_m;
+    commands_internal[1].file_name = "cd";
+    commands_internal[1].fun = change_dir;
+    commands_internal[2].file_name = NULL;
+}
+
+internal_command type_a(char * command)
+{
+    internal_command rv;
+    rv.is_true = 0;
+    rv.fun = NULL;
+    int idx = 0;
+    while(commands_internal[idx].file_name != NULL)
+    {
+        if(strcmp(command, commands_internal[idx].file_name) == 0)
+        {
+            rv.is_true = 1;
+            rv.fun = commands_internal[idx].fun;
+            return rv;
+        }
+        idx++;
+    }
+    return rv;
 }

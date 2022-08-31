@@ -9,10 +9,21 @@ int main(void)
 {
     while(1)
     {
-       if(WIFEXITED(0))
-       {
-        printf(" i am here\n");
-       } 
+       char *buffer;
+        buffer = readline(">");
+        add_history(buffer);
+        if(buffer[0] == '$')
+        {
+            char *value = getenv(buffer + 1);
+            if(value != NULL)
+                printf("%s\n", value);
+        }
+        else
+        {
+            int rv = putenv(buffer);
+            printf("%d", rv);
+        }
+        free(buffer);   
     }
     return 0;
 }

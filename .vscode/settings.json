@@ -8,6 +8,20 @@
         "types.h": "c",
         "constant.h": "c",
         "unistd.h": "c",
-        "m_shell_struct.h": "c"
+        "m_shell_struct.h": "c",
+        "*.tcc": "c",
+        "climits": "c",
+        "cmath": "c",
+        "cstdarg": "c",
+        "cstdint": "c",
+        "cstdio": "c",
+        "cstdlib": "c",
+        "cwchar": "c",
+        "cwctype": "c",
+        "exception": "c",
+        "type_traits": "c",
+        "limits": "c",
+        "cstdbool": "c",
+        "typeinfo": "c"
     }
 }
