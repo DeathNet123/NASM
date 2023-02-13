@@ -83,3 +83,108 @@ history
 !71
 clear
 exit
+ls -l
+cat file.c 
+clear
+exit
+DINO=gcc
+echo $DINO
+clear
+$DINO file.c
+clear
+exit
+ls -l
+cmd.exe
+clear
+cat 0 < file.c | grep readline
+cat 0 < file.c | grep readline | wc - l
+cat 0 < file.c | grep readline | wc -l
+cat 0 < file.c | grep readline | wc -c
+clear
+history
+clear
+exit
+env
+clear
+exit
+env
+clear
+ls -l
+clear
+exit
+clear;date;id
+cat /etc/passwd | grep root
+date&&ls&&id
+clear
+COM=cat out
+clear
+echo $COM
+clear
+$COM
+clear
+ls -l
+echo $SHELL
+clear
+echo $SHELVL
+clear
+env | grep SHELL
+exit
+echo $LINES
+clear
+ls -l
+clear
+COM=cat out
+echo $COM
+$COM
+clear
+$COM
+clear
+echo $COM
+exit
+clea
+exit
+CASE=10
+echo $CASE
+exit
+clear
+ls -l
+CC=cat out
+clear
+$CC
+clear
+CC=cat out file.c 
+clear
+env
+clear
+exit
+env
+clear
+exit
+exit
+clear
+ls -l
+date&&ls
+history
+clear
+history
+!156
+clear
+history
+!149
+clar
+exit
+ls -l
+cat file.c 
+clear
+ls -l
+cat game
+./a.out 
+history
+env
+clear
+ls -l
+./a.out 
+ls -l
+exit
+./a.out 
+exit

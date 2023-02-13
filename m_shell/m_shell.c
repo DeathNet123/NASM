@@ -14,7 +14,7 @@
 #include<wait.h>
 
 extern char **environ;
-int logical_command = 0;
+int logidupcal_command = 0;
 int command_flag = 0;
 int command_seperator = 0;
 int_cmd_node commands_internal[10]; //this is set as for now..
